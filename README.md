@@ -19,6 +19,14 @@ pip install oidn
 
 OOP style interface will be finished in version 1.0
 
+## Architecture overview
+
+- `oidn/capi.py` defines the ctypes binding layer and thin wrappers around the OIDN C API.
+- `oidn/__init__.py` loads the platform-specific shared libraries from `oidn/lib.*`, initializes bindings, and re-exports the C API wrapper functions.
+- Pythonic API lives in `oidn/__init__.py` as `Device`, `Filter`, and `Buffer` classes with context-manager lifetimes.
+- Buffers are NumPy arrays on CPU; CUDA uses optional Torch tensors and the `__cuda_array_interface__` pointer path to the C API.
+- `generate_doc.py` regenerates `APIs.md` via module introspection; `oidn/__main__.py` is a minimal CLI stub.
+
 # Example denoising image
 
 Denoise image rendered by a monte carlo ray tracer. [code](./tests/DenoiseCornellBox/DenoiseCornellBox.py)

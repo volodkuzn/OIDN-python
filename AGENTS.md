@@ -52,12 +52,39 @@ If you think a requirement blocks a necessary change, create an ADR (see below) 
 
 ## Repo layout (current)
 
-(TO BE FILLED)
+.
+├─ AGENTS.md
+├─ APIs.md
+├─ LICENSE
+├─ README.md
+├─ generate_doc.py
+├─ setup.py
+├─ oidn/
+│  ├─ __init__.py
+│  ├─ __main__.py
+│  ├─ capi.py
+│  ├─ constants.py
+│  ├─ lib.linux.x64/
+│  ├─ lib.macos.aarch64/
+│  ├─ lib.macos.x64/
+│  └─ lib.win.x64/
+└─ tests/
+   └─ DenoiseCornellBox/
+      ├─ DenoiseCornellBox.py
+      ├─ DenoiseCornellBox2.py
+      ├─ CornellBoxNoisy.png
+      └─ CornellBoxDenoisedAsExample.png
 
 ---
 
 ## Architecture
-- See `ARCH.md` for architecture, layers, data contracts, and CLI surfaces.
+- `oidn/capi.py` is the ctypes binding layer: it loads function pointers into `RawFunctions` and exposes thin, typed-ish wrappers around the OIDN C API, including helpers for numpy buffers and generic array-interface buffers.
+- `oidn/__init__.py` is the package entrypoint: it loads the platform-specific shared libraries from `oidn/lib.*`, initializes the binding layer, and re-exports the C API wrapper functions.
+- Pythonic API lives in `oidn/__init__.py` as `Device`, `Filter`, and `Buffer` classes; they wrap raw handles, enforce device/buffer compatibility, and manage lifetimes via context managers.
+- Buffer storage is CPU-first with NumPy arrays; CUDA buffers are supported via optional Torch tensors and `__cuda_array_interface__` to pass device pointers to the C API.
+- `oidn/constants.py` defines the public enum-like constants used by both the bindings and the higher-level API.
+- `oidn/__main__.py` is a stub CLI entrypoint; example usage lives under `tests/DenoiseCornellBox/`.
+- `generate_doc.py` introspects the module to regenerate `APIs.md`.
 
 ---
 
