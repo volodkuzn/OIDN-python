@@ -60,6 +60,12 @@ Deliverables
 - Provide typed error handling helpers and lifecycle helpers.
 - Avoid Any by isolating untyped boundary code in a dedicated module.
 
+Status (2026-01-22)
+- [x] Added `src/oidn/_ffi.py` with typed bindings, library auto-loading, and error helpers.
+- [x] Switched `src/oidn/capi.py` to use the new FFI layer with lazy initialization.
+- [x] Removed hardcoded library version loading in `src/oidn/__init__.py`.
+- [x] Added unit tests covering library loading and device error formatting.
+
 Deliverables
 - `oidn/_ffi.py` (or similar) with typed bindings and tests.
 

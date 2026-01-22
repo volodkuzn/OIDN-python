@@ -1,89 +1,29 @@
+from __future__ import annotations
+
 import ctypes
-from oidn.constants import *
-import numpy as np
-import struct
 from typing import Callable
 
+import numpy as np
 
-class RawFunctions:
-    # Device
-    oidnNewDevice = None
-    oidnCommitDevice = None
-    oidnGetDeviceError = None
-    oidnReleaseDevice = None
-    oidnRetainDevice = None
-    oidnSetDeviceBool = None
-    oidnSetDeviceInt = None
-    oidnGetDeviceBool = None
-    oidnGetDeviceInt = None
-
-    # Filter API
-    oidnNewFilter = None
-    oidnSetSharedFilterImage = None
-    oidnUnsetFilterImage = None
-    oidnSetSharedFilterData = None
-    oidnUpdateFilterData = None
-    oidnUnsetFilterData = None
-    oidnSetFilterBool = None
-    oidnGetFilterBool = None
-    oidnSetFilterInt = None
-    oidnGetFilterInt = None
-    oidnSetFilterFloat = None
-    oidnGetFilterFloat = None
-    oidnCommitFilter = None
-    oidnExecuteFilter = None
-    oidnReleaseFilter = None
-    oidnRetainFilter = None
+from oidn import _ffi
+from oidn.constants import *
 
 
-def __init_by_lib(lib: ctypes.CDLL):
-    type_map = {
-        "i": ctypes.c_int32,
-        "l": ctypes.c_long,
-        "L": ctypes.c_longlong,
-        "z": ctypes.c_size_t,
-        "f": ctypes.c_float,
-        "d": ctypes.c_double,
-        "D": ctypes.c_longdouble,
-        "c": ctypes.c_char,
-        "s": ctypes.c_char_p,
-        "p": ctypes.c_void_p,
-        "b": ctypes.c_bool,
-        "n": None,
-    }
+class _RawFunctionsProxy:
+    def __getattr__(self, name: str) -> object:
+        return getattr(_ffi.get_functions(), name)
 
-    def get_func(name, argtype, restype):
-        f = lib.__getattr__(name)
-        f.restype = type_map[restype]
-        f.argtypes = [type_map[t] for t in argtype]
-        return f
+    def __dir__(self) -> list[str]:
+        functions = _ffi.get_functions()
+        names = list(vars(functions).keys())
+        return sorted(set(names + list(object.__dir__(self))))
 
-    RawFunctions.oidnNewDevice = get_func("oidnNewDevice", "i", "p")
-    RawFunctions.oidnCommitDevice = get_func("oidnCommitDevice", "p", "n")
-    RawFunctions.oidnGetDeviceError = get_func("oidnGetDeviceError", "pp", "i")
-    RawFunctions.oidnReleaseDevice = get_func("oidnReleaseDevice", "p", "n")
-    RawFunctions.oidnRetainDevice = get_func("oidnRetainDevice", "p", "n")
-    RawFunctions.oidnSetDeviceBool = get_func("oidnSetDeviceBool", "psb", "n")
-    RawFunctions.oidnSetDeviceInt = get_func("oidnSetDeviceInt", "psi", "n")
-    RawFunctions.oidnGetDeviceBool = get_func("oidnGetDeviceBool", "ps", "b")
-    RawFunctions.oidnGetDeviceInt = get_func("oidnGetDeviceInt", "ps", "i")
 
-    RawFunctions.oidnNewFilter = get_func("oidnNewFilter", "ps", "p")
-    RawFunctions.oidnSetSharedFilterImage = get_func("oidnSetSharedFilterImage", "pspizzzzz", "n")
-    RawFunctions.oidnUnsetFilterImage = get_func("oidnUnsetFilterImage", "ps", "n")
-    RawFunctions.oidnSetSharedFilterData = get_func("oidnSetSharedFilterData", "pspz", "n")
-    RawFunctions.oidnUnsetFilterData = get_func("oidnUnsetFilterData", "ps", "n")
-    RawFunctions.oidnUpdateFilterData = get_func("oidnUpdateFilterData", "ps", "n")
-    RawFunctions.oidnGetFilterBool = get_func("oidnGetFilterBool", "ps", "b")
-    RawFunctions.oidnGetFilterFloat = get_func("oidnGetFilterFloat", "ps", "f")
-    RawFunctions.oidnGetFilterInt = get_func("oidnGetFilterInt", "ps", "i")
-    RawFunctions.oidnSetFilterBool = get_func("oidnSetFilterBool", "psb", "n")
-    RawFunctions.oidnSetFilterFloat = get_func("oidnSetFilterFloat", "psf", "n")
-    RawFunctions.oidnSetFilterInt = get_func("oidnSetFilterInt", "psi", "n")
-    RawFunctions.oidnCommitFilter = get_func("oidnCommitFilter", "p", "n")
-    RawFunctions.oidnExecuteFilter = get_func("oidnExecuteFilter", "p", "n")
-    RawFunctions.oidnReleaseFilter = get_func("oidnReleaseFilter", "p", "n")
-    RawFunctions.oidnRetainFilter = get_func("oidnRetainFilter", "p", "n")
+RawFunctions = _RawFunctionsProxy()
+
+
+def __init_by_lib(lib: ctypes.CDLL) -> None:
+    _ffi.init(lib, force=True)
 
 
 def NewDevice(device_type: int = DEVICE_TYPE_DEFAULT) -> int:
@@ -93,7 +33,7 @@ def NewDevice(device_type: int = DEVICE_TYPE_DEFAULT) -> int:
     Args:
         device_type(int) : OIDN_DEVICE_TYPE_XXX
     """
-    return RawFunctions.oidnNewDevice(device_type)
+    return _ffi.handle_from_ptr(RawFunctions.oidnNewDevice(device_type))
 
 
 def CommitDevice(device_handle: int):
@@ -113,25 +53,7 @@ def GetDeviceError(device_handle: int) -> tuple[int, str]:
     Returns:
         tuple of (error_code : int, error_message : str)
     """
-    buf = b"\0\0\0\0\0\0\0\0"
-    buf_ptr = ctypes.c_char_p(buf)
-    err = RawFunctions.oidnGetDeviceError(device_handle, buf_ptr)
-    errmsg_ptr = ctypes.c_char_p(struct.unpack("L", buf)[0])
-
-    errmsg = ""
-    if errmsg_ptr.value is not None:
-        errmsg = errmsg_ptr.value.decode()
-
-    msg = [
-        "No error occurred.",
-        "An unknown error occurred: ",
-        "An invalid argument was specified: ",
-        "The operation is not allowed: ",
-        "No enough memory to execute the operation: ",
-        "The hardware (e.g., CPU) is not supported: ",
-        "The operation was cancelled by the user: ",
-    ]
-    return err, msg[err] + errmsg
+    return _ffi.get_device_error(device_handle)
 
 
 def ReleaseDevice(device_handle: int):
@@ -237,7 +159,7 @@ def NewFilter(device_handle: int, type: str) -> int:
         device_handle(int) : Created by NewDevice
         type(str) : e.g. "RT“ or "RTLightmap"
     """
-    return RawFunctions.oidnNewFilter(device_handle, bytes(type, "ascii"))
+    return _ffi.handle_from_ptr(RawFunctions.oidnNewFilter(device_handle, bytes(type, "ascii")))
 
 
 def SetSharedFilterImage(
@@ -433,7 +355,7 @@ def GetFilterBool(filter_handle: int, name: str) -> bool:
     return RawFunctions.oidnGetFilterBool(filter_handle, bytes(name, "ascii"))
 
 
-def GetFilter1b(filter_handle: bool, name: str) -> bool:
+def GetFilter1b(filter_handle: int, name: str) -> bool:
     r"""
     Alias for GEtFilterBool
     """

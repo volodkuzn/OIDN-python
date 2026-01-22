@@ -74,9 +74,7 @@ def _check_metal_toolchain() -> None:
             text=True,
         )
     except FileNotFoundError as exc:
-        raise RuntimeError(
-            "xcrun is missing. Install Xcode Command Line Tools."
-        ) from exc
+        raise RuntimeError("xcrun is missing. Install Xcode Command Line Tools.") from exc
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(
             "Metal toolchain not found. Run `xcodebuild -downloadComponent MetalToolchain` "
