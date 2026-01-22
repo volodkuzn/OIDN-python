@@ -42,6 +42,9 @@ where = ["src"]
 [tool.setuptools.package-data]
 oidn = ["lib.*/*"]
 
+[tool.setuptools.cmdclass]
+bdist_wheel = "build_support:BDistWheel"
+
 [tool.ruff]
 line-length = 100
 target-version = "py39"
@@ -73,6 +76,7 @@ skip_empty = true
 
 [dependency-groups]
 dev = [
+  "build>=1.0",
   "mypy>=1.8",
   "pytest>=7.0",
   "pytest-cov>=4.0",

@@ -30,6 +30,35 @@ OOP style interface will be finished in version 1.0
 - Buffers are NumPy arrays on CPU; CUDA uses optional Torch tensors and the `__cuda_array_interface__` pointer path to the C API.
 - `generate_doc.py` regenerates `APIs.md` via module introspection; `src/oidn/__main__.py` is a minimal CLI stub.
 
+## Development
+
+### Submodule setup
+
+```
+git lfs install
+git submodule update --init --recursive
+```
+
+### Update the OIDN submodule
+
+```
+git -C oidn_cpp fetch --tags
+git -C oidn_cpp checkout <tag-or-commit>
+git add oidn_cpp
+```
+
+### Build and stage native libraries
+
+```
+python scripts/build_oidn.py --backends cpu --stage
+```
+
+To enable GPU backends, add `cuda`, `hip`, `sycl`, or `metal` to `--backends` and
+install the required toolchains described in `oidn_cpp/doc/compilation.md`.
+Use `python scripts/stage_oidn_libs.py --clean` to refresh the staged libraries.
+By default, build outputs are written under `oidn_cpp/build` and `oidn_cpp/install`.
+Metal builds require the Xcode Metal toolchain (`xcodebuild -downloadComponent MetalToolchain`).
+
 # Example denoising image
 
 Denoise image rendered by a monte carlo ray tracer. [code](./tests/DenoiseCornellBox/DenoiseCornellBox.py)

@@ -1,0 +1,4 @@
+[submodule "oidn_cpp"]
+	path = oidn_cpp
+	url = https://github.com/RenderKit/oidn.git
+	ignore = untracked

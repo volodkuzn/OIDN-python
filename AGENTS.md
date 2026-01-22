@@ -56,11 +56,16 @@ If you think a requirement blocks a necessary change, create an ADR (see below) 
 ├─ AGENTS.md
 ├─ APIs.md
 ├─ ARCH.md
+├─ .github/
+│  └─ workflows/
 ├─ IMPLEMENTATION_PLAN.md
 ├─ LICENSE
 ├─ README.md
+├─ build_support.py
 ├─ generate_doc.py
+├─ oidn_cpp/
 ├─ pyproject.toml
+├─ scripts/
 ├─ src/
 │  └─ oidn/
 │     ├─ __init__.py

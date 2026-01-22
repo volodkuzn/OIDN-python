@@ -42,6 +42,14 @@ Deliverables
 - Copy built shared libraries into the package at build time.
 - Add CI matrix to build wheels with bundled OIDN libs per OS/arch.
 
+Status (2026-01-22)
+- [x] Added `oidn_cpp` submodule pinned to the current commit.
+- [x] Added `scripts/build_oidn.py` to build OIDN via the submodule build script.
+- [x] Added `scripts/stage_oidn_libs.py` to stage shared libraries into `src/oidn/lib.*`.
+- [x] Documented submodule update and build steps in README.
+- [x] Added a GitHub Actions wheel build matrix for Linux, Windows, and macOS (x64/arm64).
+- [ ] Expand CI to build GPU backends once runners/toolchains are available.
+
 Deliverables
 - Submodule checked in and documented.
 - Deterministic build artifacts for each platform/backend combination.
