@@ -64,6 +64,7 @@ Deliverables
 - `oidn/_ffi.py` (or similar) with typed bindings and tests.
 
 ### 4) Backend abstraction and device selection API
+- Check the current device implementation of the device selection. Proceed with next bullet-point only if needed
 - Introduce a `Backend` enum mapped to OIDN device types.
 - Implement `Device(backend=Backend.CPU, ...)` with validation and defaults.
 - Add `available_backends()` and `is_backend_available(backend)` helpers.
