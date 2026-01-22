@@ -27,7 +27,7 @@ Status (2026-01-22)
 - [x] Removed `setup.py` flow and documented pyproject usage in README.
 - [x] Added `tests/unit`, `tests/integration`, and `tests/fixtures` scaffolding.
 - [x] Added `ARCH.md` describing the typed public API surface and module layout plan.
-- [ ] Generate `uv.lock` via `uv lock` when network access is available.
+- [x] Generate `uv.lock` via `uv lock` when network access is available.
 
 Deliverables
 - `pyproject.toml`, `uv.lock`, and src-layout package.
