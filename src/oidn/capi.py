@@ -1,11 +1,9 @@
 import ctypes
-import os
 from oidn.constants import *
-import typing
 import numpy as np
-import importlib
 import struct
 from typing import Callable
+
 
 class RawFunctions:
     # Device
@@ -71,13 +69,9 @@ def __init_by_lib(lib: ctypes.CDLL):
     RawFunctions.oidnGetDeviceInt = get_func("oidnGetDeviceInt", "ps", "i")
 
     RawFunctions.oidnNewFilter = get_func("oidnNewFilter", "ps", "p")
-    RawFunctions.oidnSetSharedFilterImage = get_func(
-        "oidnSetSharedFilterImage", "pspizzzzz", "n"
-    )
+    RawFunctions.oidnSetSharedFilterImage = get_func("oidnSetSharedFilterImage", "pspizzzzz", "n")
     RawFunctions.oidnUnsetFilterImage = get_func("oidnUnsetFilterImage", "ps", "n")
-    RawFunctions.oidnSetSharedFilterData = get_func(
-        "oidnSetSharedFilterData", "pspz", "n"
-    )
+    RawFunctions.oidnSetSharedFilterData = get_func("oidnSetSharedFilterData", "pspz", "n")
     RawFunctions.oidnUnsetFilterData = get_func("oidnUnsetFilterData", "ps", "n")
     RawFunctions.oidnUpdateFilterData = get_func("oidnUpdateFilterData", "ps", "n")
     RawFunctions.oidnGetFilterBool = get_func("oidnGetFilterBool", "ps", "b")
@@ -90,6 +84,7 @@ def __init_by_lib(lib: ctypes.CDLL):
     RawFunctions.oidnExecuteFilter = get_func("oidnExecuteFilter", "p", "n")
     RawFunctions.oidnReleaseFilter = get_func("oidnReleaseFilter", "p", "n")
     RawFunctions.oidnRetainFilter = get_func("oidnRetainFilter", "p", "n")
+
 
 def NewDevice(device_type: int = DEVICE_TYPE_DEFAULT) -> int:
     """
@@ -122,11 +117,11 @@ def GetDeviceError(device_handle: int) -> tuple[int, str]:
     buf_ptr = ctypes.c_char_p(buf)
     err = RawFunctions.oidnGetDeviceError(device_handle, buf_ptr)
     errmsg_ptr = ctypes.c_char_p(struct.unpack("L", buf)[0])
-    
+
     errmsg = ""
-    if not (errmsg_ptr.value is None):
+    if errmsg_ptr.value is not None:
         errmsg = errmsg_ptr.value.decode()
-    
+
     msg = [
         "No error occurred.",
         "An unknown error occurred: ",
@@ -165,12 +160,14 @@ def SetDeviceBool(device_handle: int, name: str, value: bool):
         value : parameter value(bool type)
     """
     RawFunctions.oidnSetDeviceBool(device_handle, bytes(name, "ascii"), value)
-    
+
+
 def SetDevice1b(device_handle: int, name: str, value: bool):
     r"""
     Alias for SetDeviceBool
     """
     SetDeviceBool(device_handle, name, str)
+
 
 def SetDeviceInt(device_handle: int, name: str, value: int):
     r"""
@@ -183,11 +180,12 @@ def SetDeviceInt(device_handle: int, name: str, value: int):
         value : parameter value(bool type)
     """
     RawFunctions.oidnSetDeviceInt(device_handle, bytes(name, "ascii"), value)
-    
+
+
 def SetDevice1i(device_handle: int, name: str, value: int):
-    r'''
+    r"""
     Alias for SetDeviceInt
-    '''
+    """
     SetDeviceInt(device_handle, name, value)
 
 
@@ -205,11 +203,13 @@ def GetDeviceInt(device_handle: int, name: str) -> int:
     """
     return RawFunctions.oidnGetDeviceInt(device_handle, bytes(name, "ascii"))
 
+
 def GetDevice1i(device_handle: int, name: str) -> int:
-    r'''
+    r"""
     Alias for GetDeviceInt
-    '''
+    """
     return GetDeviceInt(device_handle, name)
+
 
 def GetDeviceBool(device_handle: int, name: str) -> bool:
     r"""
@@ -223,9 +223,9 @@ def GetDeviceBool(device_handle: int, name: str) -> bool:
 
 
 def GetDevice1b(device_handle: int, name: str) -> bool:
-    r'''
+    r"""
     Alias for GetDeviceBool
-    '''
+    """
     return GetDeviceBool(device_handle, name)
 
 
@@ -274,7 +274,7 @@ def SetSharedFilterImage(
         raise RuntimeError(f"The shape of the data should be {desired_data_shape}")
 
     if name == "output" and not data.flags.c_contiguous:
-        raise RuntimeError(f"When name == output, the data should be c_contiguous")
+        raise RuntimeError("When name == output, the data should be c_contiguous")
 
     if not data.flags.c_contiguous:
         data = np.ascontiguousarray(data)
@@ -289,12 +289,13 @@ def SetSharedFilterImage(
         bytePixelStride,
         byteRowStride,
     )
-    
+
+
 def SetSharedFilterImageEx(
     filter_handle: int,
     name: str,
     data: object,
-    get_shape : Callable,
+    get_shape: Callable,
     check_c_contiguous: Callable,
     get_array_interface: Callable,
     format: int,
@@ -302,10 +303,11 @@ def SetSharedFilterImageEx(
     height: int,
     byteOffset: int = 0,
     bytePixelStride: int = 0,
-    byteRowStride: int = 0):
-    r'''
+    byteRowStride: int = 0,
+):
+    r"""
     Used internelly. 'data' parameter could be any buffer type, requring get_shape, check_c_contiguous, get_array_interface.
-    '''
+    """
     desired_dim3 = [0, 1, 2, 3, 4]
     desired_data_shape = (height, width, desired_dim3[format])
     shape = get_shape(data)
@@ -313,12 +315,12 @@ def SetSharedFilterImageEx(
         raise RuntimeError(f"The shape of the data should be {desired_data_shape}")
 
     if name == "output" and not check_c_contiguous(data):
-        raise RuntimeError(f"When name == output, the data should be c_contiguous")
+        raise RuntimeError("When name == output, the data should be c_contiguous")
 
     if not check_c_contiguous(data):
         raise RuntimeError(f"Requires C contiguous data for {name}")
         # data = np.ascontiguousarray(data)
-        
+
     RawFunctions.oidnSetSharedFilterImage(
         filter_handle,
         bytes(name, "ascii"),
@@ -340,12 +342,14 @@ def UnsetFilterImage(filter_handle: int, name: str):
         name : image name
     """
     RawFunctions.oidnUnsetFilterImage(filter_handle, bytes(name, "ascii"))
-    
+
+
 def RemoveFilterImage(filter_handle: int, name: str):
-    r'''
+    r"""
     Alias for UnsetFilterImage
-    '''
+    """
     UnsetFilterImage(filter_handle, name)
+
 
 def SetSharedFilterData(filter_handle: int, name: str, data: np.array):
     r"""
@@ -386,12 +390,14 @@ def UnsetFilterData(filter_handle: int, name: str):
         name : name of the data
     """
     RawFunctions.oidnUnsetFilterData(filter_handle, bytes(name, "ascii"))
-    
+
+
 def RemoveFilterData(filter_handle: int, name: str):
-    r'''
+    r"""
     Alias for UnsetFilterData
-    '''
-    UnsetFilterData(filter_handle, name)    
+    """
+    UnsetFilterData(filter_handle, name)
+
 
 def GetFilterInt(filter_handle: int, name: str) -> int:
     r"""
@@ -404,6 +410,7 @@ def GetFilterInt(filter_handle: int, name: str) -> int:
         name : name of the parameter
     """
     return RawFunctions.oidnGetFilterInt(filter_handle, bytes(name, "ascii"))
+
 
 def GetFilter1i(filter_handle: int, name: str) -> int:
     r"""
@@ -425,11 +432,13 @@ def GetFilterBool(filter_handle: int, name: str) -> bool:
     """
     return RawFunctions.oidnGetFilterBool(filter_handle, bytes(name, "ascii"))
 
+
 def GetFilter1b(filter_handle: bool, name: str) -> bool:
-    r'''
+    r"""
     Alias for GEtFilterBool
-    '''
+    """
     return GetFilterBool(filter_handle, name)
+
 
 def GetFilterFloat(filter_handle: int, name: str) -> float:
     r"""
@@ -441,11 +450,13 @@ def GetFilterFloat(filter_handle: int, name: str) -> float:
     """
     return RawFunctions.oidnGetFilterFloat(filter_handle, bytes(name, "ascii"))
 
+
 def GetFilter1f(filter_handle: int, name: str) -> float:
-    r'''
+    r"""
     Alias for GetFilterFloat
-    '''
+    """
     return GetFilterFloat(filter_handle, name)
+
 
 def SetFilterBool(filter_handle: int, name: str, value: bool):
     r"""
@@ -461,10 +472,11 @@ def SetFilterBool(filter_handle: int, name: str, value: bool):
     """
     RawFunctions.oidnSetFilterBool(filter_handle, bytes(name, "ascii"), value)
 
+
 def SetFilter1b(filter_handle: int, name: str, value: bool):
-    r'''
+    r"""
     Alias for SetFilterBool
-    '''
+    """
     SetFilterBool(filter_handle, name, value)
 
 
@@ -483,10 +495,11 @@ def SetFilterInt(filter_handle: int, name: str, value: int):
 
 
 def SetFilter1i(filter_handle: int, name: str, value: int):
-    r'''
+    r"""
     Alias for SetFilterInt
-    '''
+    """
     SetFilterInt(filter_handle, name, value)
+
 
 def SetFilterFloat(filter_handle: int, name: str, value: float):
     r"""
@@ -498,12 +511,14 @@ def SetFilterFloat(filter_handle: int, name: str, value: float):
         value : value of the parameter
     """
     RawFunctions.oidnSetFilterFloat(filter_handle, bytes(name, "ascii"), value)
-    
-def SetFilter1f(filter_handle: int, name : str, value: float):
-    r'''
+
+
+def SetFilter1f(filter_handle: int, name: str, value: float):
+    r"""
     Alias for SetFilterFloat
-    '''
+    """
     SetFilterFloat(filter_handle, name, value)
+
 
 def CommitFilter(filter_handle: int):
     r"""

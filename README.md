@@ -7,6 +7,9 @@ Install using pip.(support macos_aarch64, win_amd64, linux_x64).
 pip install oidn
 ```
 
+This repository uses a `pyproject.toml`-based build (no `setup.py` flow). Use `uv` for
+dependency management during development.
+
 # Features(version 0.4)
 
 ## C API wrapper
@@ -21,11 +24,11 @@ OOP style interface will be finished in version 1.0
 
 ## Architecture overview
 
-- `oidn/capi.py` defines the ctypes binding layer and thin wrappers around the OIDN C API.
-- `oidn/__init__.py` loads the platform-specific shared libraries from `oidn/lib.*`, initializes bindings, and re-exports the C API wrapper functions.
-- Pythonic API lives in `oidn/__init__.py` as `Device`, `Filter`, and `Buffer` classes with context-manager lifetimes.
+- `src/oidn/capi.py` defines the ctypes binding layer and thin wrappers around the OIDN C API.
+- `src/oidn/__init__.py` loads the platform-specific shared libraries from `src/oidn/lib.*`, initializes bindings, and re-exports the C API wrapper functions.
+- Pythonic API lives in `src/oidn/__init__.py` as `Device`, `Filter`, and `Buffer` classes with context-manager lifetimes.
 - Buffers are NumPy arrays on CPU; CUDA uses optional Torch tensors and the `__cuda_array_interface__` pointer path to the C API.
-- `generate_doc.py` regenerates `APIs.md` via module introspection; `oidn/__main__.py` is a minimal CLI stub.
+- `generate_doc.py` regenerates `APIs.md` via module introspection; `src/oidn/__main__.py` is a minimal CLI stub.
 
 # Example denoising image
 
@@ -38,7 +41,7 @@ import numpy as np
 from PIL import Image
 
 here = Path(__file__).parent.absolute()
-sys.path.append(here.parent.parent.absolute().as_posix())
+sys.path.append((here.parent.parent / "src").as_posix())
 
 import oidn
 
@@ -87,7 +90,7 @@ import numpy as np
 from PIL import Image
 
 here = Path(__file__).parent.absolute()
-sys.path.append(here.parent.parent.absolute().as_posix())
+sys.path.append((here.parent.parent / "src").as_posix())
 
 import oidn
 

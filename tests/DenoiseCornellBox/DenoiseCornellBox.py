@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 
 here = Path(__file__).parent.absolute()
-sys.path.append(here.parent.parent.absolute().as_posix())
+sys.path.append((here.parent.parent / "src").as_posix())
 
 import oidn
 
@@ -15,12 +15,8 @@ device = oidn.NewDevice()
 oidn.CommitDevice(device)
 
 filter = oidn.NewFilter(device, "RT")
-oidn.SetSharedFilterImage(
-    filter, "color", img, oidn.FORMAT_FLOAT3, img.shape[1], img.shape[0]
-)
-oidn.SetSharedFilterImage(
-    filter, "output", result, oidn.FORMAT_FLOAT3, img.shape[1], img.shape[0]
-)
+oidn.SetSharedFilterImage(filter, "color", img, oidn.FORMAT_FLOAT3, img.shape[1], img.shape[0])
+oidn.SetSharedFilterImage(filter, "output", result, oidn.FORMAT_FLOAT3, img.shape[1], img.shape[0])
 oidn.CommitFilter(filter)
 oidn.ExecuteFilter(filter)
 

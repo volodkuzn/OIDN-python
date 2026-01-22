@@ -1,29 +1,29 @@
 DEVICE_TYPE_DEFAULT = 0
-'''
+"""
 Select device automatically. CUDA is selected if available, or uses cpu.
-'''
+"""
 
 DEVICE_TYPE_CPU = 1
-'''
+"""
 CPU device(Requires SSE4.1 support on X86 platform, or Apple Silicon)
-'''
+"""
 
 DEVICE_TYPE_CUDA = 3
-'''
+"""
 CUDA device
-'''
-    
-FORMAT_UNDEFINED = 0,
-FORMAT_FLOAT    = 1
-FORMAT_FLOAT2   = 2
-FORMAT_FLOAT3   = 3
-FORMAT_FLOAT4   = 4
-FORMAT_HALF     = 257
-FORMAT_HALF2    = 258
-FORMAT_HALF3    = 259
-FORMAT_HALF4    = 260
-    
-# Buffer API is disabled 
+"""
+
+FORMAT_UNDEFINED = (0,)
+FORMAT_FLOAT = 1
+FORMAT_FLOAT2 = 2
+FORMAT_FLOAT3 = 3
+FORMAT_FLOAT4 = 4
+FORMAT_HALF = 257
+FORMAT_HALF2 = 258
+FORMAT_HALF3 = 259
+FORMAT_HALF4 = 260
+
+# Buffer API is disabled
 # ACCESS_READ      = 0
 # '''
 # Read-only access
@@ -45,10 +45,10 @@ FORMAT_HALF4    = 260
 # '''
 
 
-ERROR_NONE                 = 0
-ERROR_UNKNOWN              = 1
-ERROR_INVALID_ARGUMENT     = 2
-ERROR_INVALID_OPERATION    = 3
-ERROR_OUT_OF_MEMORY        = 4
+ERROR_NONE = 0
+ERROR_UNKNOWN = 1
+ERROR_INVALID_ARGUMENT = 2
+ERROR_INVALID_OPERATION = 3
+ERROR_OUT_OF_MEMORY = 4
 ERROR_UNSUPPORTED_HARDWARE = 5
-ERROR_CANCELLED            = 6
+ERROR_CANCELLED = 6
