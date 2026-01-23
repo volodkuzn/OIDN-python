@@ -35,6 +35,7 @@ Repository = "https://github.com/sxysxy/OIDN-python"
 [tool.setuptools]
 package-dir = { "" = "src" }
 include-package-data = true
+py-modules = ["build_support"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -43,7 +44,7 @@ where = ["src"]
 oidn = ["lib.*/*"]
 
 [tool.setuptools.cmdclass]
-bdist_wheel = "build_support:BDistWheel"
+bdist_wheel = "build_support.BDistWheel"
 
 [tool.ruff]
 line-length = 100

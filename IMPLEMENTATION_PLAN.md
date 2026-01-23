@@ -77,6 +77,14 @@ Deliverables
 - Add backend-specific runtime checks (driver/toolkit presence, array protocol support).
 - Allow user to pass backend-specific config at initialization when needed.
 
+Status (2026-01-22)
+- [x] Reviewed existing device selection and confirmed backend-aware API was required.
+- [x] Added `Backend` enum mapped to OIDN device types.
+- [x] Updated `Device` initialization to validate backend availability and apply defaults.
+- [x] Added `available_backends()` and `is_backend_available()` helpers.
+- [x] Implemented backend runtime checks (torch/dpctl/platform and device probe).
+- [x] Added `DeviceOptions`/`extra_params` for backend-specific configuration.
+
 Deliverables
 - Public API supporting explicit backend selection and discovery.
 

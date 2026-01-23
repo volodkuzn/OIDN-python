@@ -171,6 +171,10 @@ def load_library() -> ctypes.CDLL:
     return _load_shared_libraries(_lib_dir())
 
 
+def library_dir() -> Path:
+    return _lib_dir()
+
+
 def loaded_library_version() -> str | None:
     if _LOADED_LIBRARY_PATH is None:
         return None
@@ -178,6 +182,27 @@ def loaded_library_version() -> str | None:
     if match is None:
         return None
     return match.group(1)
+
+
+def packaged_library_version() -> str | None:
+    lib_dir = _lib_dir()
+    if not lib_dir.exists():
+        return None
+    candidates = _find_shared_libraries(lib_dir)
+    if not candidates:
+        return None
+    main_candidates = [
+        path
+        for path in candidates
+        if "openimagedenoise" in path.name.lower()
+        and "device" not in path.name.lower()
+        and "core" not in path.name.lower()
+    ]
+    for path in main_candidates + candidates:
+        match = _VERSION_RE.search(path.name)
+        if match is not None:
+            return match.group(1)
+    return None
 
 
 def _get_func(

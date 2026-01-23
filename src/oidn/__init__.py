@@ -3,12 +3,16 @@ import importlib
 import torch
 from PIL import Image
 
-from oidn import _ffi
+from oidn import _backends, _ffi
+from oidn._backends import (  # noqa: F401 - re-exported public API
+    Backend,
+    DeviceOptions,
+    available_backends,
+    is_backend_available,
+)
 from oidn.capi import *
 
-_ffi.get_functions()
-
-oidn_version = _ffi.loaded_library_version() or "unknown"
+oidn_version = _ffi.loaded_library_version() or _ffi.packaged_library_version() or "unknown"
 oidn_py_version = "0.4"
 
 
@@ -21,24 +25,43 @@ class AutoReleaseByContextManaeger:
 
 
 class Device(AutoReleaseByContextManaeger):
-    def __init__(self, device_type="cpu") -> None:
+    def __init__(
+        self,
+        backend: Backend | str | None = None,
+        *,
+        device_type: Backend | str | None = None,
+        options: DeviceOptions | None = None,
+    ) -> None:
         r"""
         Create an OIDN device.
 
         Args:
-            device_type: 'cpu' or 'cuda'
+            backend: backend selection (cpu/cuda/hip/sycl/metal/auto)
+            device_type: legacy alias for backend selection
+            options: device configuration options
         """
-        if device_type == "cpu":
-            d = DEVICE_TYPE_CPU
-        elif device_type == "cuda":
-            d = DEVICE_TYPE_CUDA
+        if backend is None and device_type is None:
+            resolved = Backend.CPU
+        elif backend is not None and device_type is not None:
+            raise ValueError("Specify backend or device_type, not both.")
+        elif backend is not None:
+            resolved = Backend.parse(backend)
         else:
-            raise RuntimeError("Requires device_type in ['cpu', 'cuda']")
-        self.__device_handle: int = NewDevice(d)
-        # self.raise_if_error()
+            resolved = Backend.parse(device_type)
+        availability = _backends.backend_availability(resolved)
+        if not availability.available:
+            reason = availability.reason or "Backend is unavailable."
+            raise RuntimeError(reason)
+
+        self.backend = resolved
+        device_type_value = _backends.device_type_for_backend(resolved)
+        self.type = device_type_value
+        self.__device_handle = NewDevice(device_type_value)
+        if self.__device_handle == 0:
+            raise RuntimeError("Failed to create device.")
+        if options is not None:
+            _backends.apply_device_options(self.device_handle, options)
         CommitDevice(self.device_handle)
-        # self.raise_if_error()
-        self.type = device_type
 
     @property
     def error(self):
@@ -69,14 +92,35 @@ class Device(AutoReleaseByContextManaeger):
         """
         Indicate whether it is a CPU device.
         """
-        return self.type == "cpu"
+        return self.backend is Backend.CPU
 
     @property
     def is_cuda(self):
         """
         Indicate wheter it is a CUDA device.
         """
-        return self.type == "cuda"
+        return self.backend is Backend.CUDA
+
+    @property
+    def is_hip(self):
+        """
+        Indicate whether it is a HIP device.
+        """
+        return self.backend is Backend.HIP
+
+    @property
+    def is_sycl(self):
+        """
+        Indicate whether it is a SYCL device.
+        """
+        return self.backend is Backend.SYCL
+
+    @property
+    def is_metal(self):
+        """
+        Indicate whether it is a Metal device.
+        """
+        return self.backend is Backend.METAL
 
     @property
     def device_handle(self):

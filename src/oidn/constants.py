@@ -8,9 +8,24 @@ DEVICE_TYPE_CPU = 1
 CPU device(Requires SSE4.1 support on X86 platform, or Apple Silicon)
 """
 
+DEVICE_TYPE_SYCL = 2
+"""
+SYCL device
+"""
+
 DEVICE_TYPE_CUDA = 3
 """
 CUDA device
+"""
+
+DEVICE_TYPE_HIP = 4
+"""
+HIP device
+"""
+
+DEVICE_TYPE_METAL = 5
+"""
+Metal device
 """
 
 FORMAT_UNDEFINED = (0,)
