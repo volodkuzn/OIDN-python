@@ -231,6 +231,7 @@ def test_byte_strides_helper() -> None:
     assert oidn._byte_strides((2, 3), None, 4) == (12, 4)
     assert oidn._byte_strides((2, 3, 4), None, 4) == (48, 16)
     assert oidn._byte_strides((2, 3, 4), (48, 16, 4), 4) == (48, 16)
+    assert oidn._byte_strides((2, 3), (12, 4), 4) == (12, 4)
 
 
 def test_resolve_channel_order() -> None:
@@ -283,6 +284,9 @@ def test_buffer_from_array_errors() -> None:
     with pytest.raises(ValueError):
         oidn.Buffer.from_array(device, np.zeros((2, 2, 3), dtype=np.float32), channel_first=True)
 
+    with pytest.raises(TypeError):
+        oidn.Buffer.from_array(device, np.zeros((2, 2, 3), dtype=np.float32), channel_order=123)
+
 
 def test_buffer_from_array_gpu_interfaces() -> None:
     device = cast(oidn.Device, DummyDevice(oidn.Backend.CUDA))
@@ -306,6 +310,12 @@ def test_buffer_create_cpu() -> None:
     buffer = oidn.Buffer.create(2, 3, device=device, dtype=np.float16)
     assert isinstance(buffer.buffer_delegate, np.ndarray)
     assert buffer.dtype == np.dtype("float16")
+    with pytest.raises(ValueError):
+        oidn.Buffer.create(2, 3, device=None)
+    with pytest.raises(ValueError):
+        oidn.Buffer.create(2, 3, device=device, channels=5)
+    with pytest.raises(ValueError):
+        oidn.Buffer.create(2, 3, device=device, channel_order="chw")
 
 
 def test_buffer_create_cuda_paths(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -373,6 +383,15 @@ def test_buffer_load_numpy_gpu(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_cupy = FakeCupyModule()
     monkeypatch.setattr(oidn, "_load_cupy", lambda: fake_cupy)
     buffer = oidn.Buffer.load(device, array, normalize=False, use_cupy=True)
+    assert buffer.channels == 3
+
+
+def test_buffer_load_sycl_numpy(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_dpctl = FakeDpctlTensorModule()
+    monkeypatch.setattr(oidn, "_load_dpctl_tensor", lambda: fake_dpctl)
+    device = cast(oidn.Device, DummyDevice(oidn.Backend.SYCL))
+    array = np.zeros((2, 2, 3), dtype=np.float32)
+    buffer = oidn.Buffer.load(device, array, normalize=False)
     assert buffer.channels == 3
 
 

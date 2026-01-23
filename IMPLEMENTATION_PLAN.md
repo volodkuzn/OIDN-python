@@ -113,6 +113,12 @@ Deliverables
 - GPU paths covered via mocks/fakes for array interface extraction and pointer handling.
 - Maintain 100% line coverage for production code.
 
+Status (2026-01-22)
+- [x] Added unit tests for device selection, backend checks, and buffer validation.
+- [x] Added integration test for CPU denoise with auxiliary images.
+- [x] Added mocked GPU/SYCL array-interface tests for pointer/stride handling.
+- [ ] Run full coverage and close remaining gaps (if any).
+
 Deliverables
 - `tests/unit` and `tests/integration` covering all public APIs and key branches.
 
@@ -121,6 +127,15 @@ Deliverables
 - Regenerate `APIs.md` if API surface changes.
 - Add minimal CLI usage if needed, otherwise document script usage.
 - Document how to update the OIDN submodule and rebuild libs.
+
+### 8) Code monitoring
+- Add a pre-commit to the package
+- Add `ruff format` to pre-commit
+- Add `ruff check --fix` to pre-commit, and add safe defaults to pyproject.toml
+- There are lots of star imports, consider disabling F405
+- Run mypy to check feasibility of adding it to the project
+- Correct all ruff and mypy (if added) errors
+- Add Github CI
 
 Deliverables
 - Updated docs and example snippets aligned with the new API.

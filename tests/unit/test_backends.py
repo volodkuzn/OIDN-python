@@ -161,6 +161,65 @@ def test_check_python_runtime_metal(monkeypatch) -> None:
     assert reason == "Metal backend requires macOS."
 
 
+def test_check_python_runtime_cuda(monkeypatch) -> None:
+    monkeypatch.setattr(backends, "_torch_runtime_status", lambda: (False, "missing", False))
+    ok, reason = backends._check_python_runtime(backends.Backend.CUDA)
+    assert ok is False
+    assert reason == "missing"
+
+
+def test_check_python_runtime_hip(monkeypatch) -> None:
+    monkeypatch.setattr(backends, "_torch_runtime_status", lambda: (True, None, False))
+    ok, reason = backends._check_python_runtime(backends.Backend.HIP)
+    assert ok is False
+    assert reason == "HIP backend requires a ROCm-enabled torch build."
+    monkeypatch.setattr(backends, "_torch_runtime_status", lambda: (True, None, True))
+    ok, reason = backends._check_python_runtime(backends.Backend.HIP)
+    assert ok is True
+    assert reason is None
+
+
+def test_torch_runtime_status(monkeypatch) -> None:
+    def fail_import(_name: str):
+        raise ModuleNotFoundError
+
+    monkeypatch.setattr(importlib, "import_module", fail_import)
+    ok, message, hip = backends._torch_runtime_status()
+    assert ok is False
+    assert message == "CUDA/HIP backends require torch to be installed."
+    assert hip is False
+
+    class FakeCuda:
+        @staticmethod
+        def is_available() -> bool:
+            return False
+
+    class FakeTorch:
+        cuda = FakeCuda()
+        version = type("Version", (), {"hip": None})
+
+    monkeypatch.setattr(importlib, "import_module", lambda _name: FakeTorch())
+    ok, message, hip = backends._torch_runtime_status()
+    assert ok is False
+    assert message == "torch.cuda.is_available() is False."
+    assert hip is False
+
+    class FakeCudaOk:
+        @staticmethod
+        def is_available() -> bool:
+            return True
+
+    class FakeTorchHip:
+        cuda = FakeCudaOk()
+        version = type("Version", (), {"hip": "1.0"})
+
+    monkeypatch.setattr(importlib, "import_module", lambda _name: FakeTorchHip())
+    ok, message, hip = backends._torch_runtime_status()
+    assert ok is True
+    assert message is None
+    assert hip is True
+
+
 def test_probe_device_success(monkeypatch) -> None:
     fake = FakeFunctions()
     monkeypatch.setattr(ffi, "get_functions", lambda: fake)
