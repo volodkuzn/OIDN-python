@@ -294,7 +294,7 @@ These functions are FFI objects for corresponding native functions in the OIDN d
 ### oidnUpdateFilterData
 # Pythonic APIs
 ## Class Device
-### \_\_init\_\_(self, backend: oidn._backends.Backend | str | None = None, *, device_type: oidn._backends.Backend | str | None = None, options: oidn._backends.DeviceOptions | None = None) -> None: <div style="text-align: right; float: right; color: #215f11">method</div> 
+### \_\_init\_\_(self, backend: 'Backend | str | None' = None, *, device_type: 'Backend | str | None' = None, options: 'DeviceOptions | None' = None) -> 'None': <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
 Create an OIDN device.
 
@@ -340,13 +340,13 @@ Raise a RuntimeError if an error occured.
 Call ReleaseDevice with self.device_handle
 ```
 ## Class Filter
-### \_\_init\_\_(self, device: oidn.Device, type: str) -> None: <div style="text-align: right; float: right; color: #215f11">method</div> 
+### \_\_init\_\_(self, device: 'Device', type: 'str') -> 'None': <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
 Args:
             device : oidn.Device
             type   : 'RT' or 'RTLightmap'
 ```
-### execute(self): <div style="text-align: right; float: right; color: #215f11">method</div> 
+### execute(self) -> 'None': <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
 Run the filter, wait until finished.
 ```
@@ -354,72 +354,52 @@ Run the filter, wait until finished.
 ```
 Returns the handle of filter.
 ```
-### release(self): <div style="text-align: right; float: right; color: #215f11">method</div> 
+### release(self) -> 'None': <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
-Call ReleaseFilter with self.fitler_handle
+Call ReleaseFilter with self.filter_handle
 ```
-### set\_image(self, name: str, buffer: oidn.Buffer): <div style="text-align: right; float: right; color: #215f11">method</div> 
+### set\_image(self, name: 'str', buffer: 'Buffer') -> 'None': <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
 Set image buffer for the filter.
 
         Args:
             name    : color/albedo/normal/output
-            -------
-                color : input beauty image (3 channels, LDR values in [0, 1] or HDR values in [0, +∞), values being interpreted such that, after scaling with the inputScale parameter, a value of 1 corresponds to a luminance level of 100 cd/m²)
-                albedo (only support RT filter) : input auxiliary image containing the albedo per pixel (3 channels, values in [0, 1])
-                normal (only support RT filter) : input auxiliary image containing the shading normal per pixel (3 channels, world-space or view-space vectors with arbitrary length, values in [-1, 1])
-                output : output image (3 channels); can be one of the input images
-            -------
-
             buffer  : Buffer object
 ```
+### set\_images(self, *, color: 'Buffer', output: 'Buffer', albedo: 'Buffer | None' = None, normal: 'Buffer | None' = None) -> 'None': <div style="text-align: right; float: right; color: #215f11">method</div> 
+```
+Set the filter images in a single call.
+```
 ## Class Buffer
-### \_\_init\_\_(self, device: oidn.Device, width=0, height=0) -> None: <div style="text-align: right; float: right; color: #215f11">method</div> 
+### \_\_init\_\_(self, device: 'Device', buffer_delegate: 'object', format: 'int', channel_order: 'ChannelOrder', width: 'int', height: 'int', channels: 'int', byte_offset: 'int', byte_pixel_stride: 'int', byte_row_stride: 'int', data_ptr: 'int', dtype: 'np.dtype') -> None: <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
-Do not call this.
+(No document)
 ```
-### create(width: int, height: int, channels=3, channel_first=False, device: oidn.Device = None, use_cupy=False, dtype=<class 'numpy.float32'>): <div style="text-align: right; float: right; color: #215f11">method</div> 
+### channel\_first <div style="text-align: right; float: right; color: #21138d">property</div>  
 ```
-Create a buffer.
-
-        Args:
-            width    : width in pixel
-            height   : height in pixel
-            channels : channels of the image, it could be 0 or None.
-            channel_first : If it is true and channels is not zero(None), self.buffer_delegate will be shaped to (channles, height, width), otherwise (height, width, channels).
-                            If the chennels parameter is zero(None), the shape will be (height, width) regardless channel_first.
-            device   : Device. If is_cpu, self.buffer_delegate will be a numpy.ndarray, otherwise, if use_cupy is specified, the buffer_delegate will be a cupy.ndarray, otherwise it will be a torch.Tensor with device='cuda'.
-            use_cupy : Use cupy, it is not implemented in OIDN-python 0.4.
-            dtype    : could be np.float32, torch.float16(if supported)
+Indicate whether the buffer is channel-first.
 ```
-### height <div style="text-align: right; float: right; color: #21138d">property</div>  
+### create(width: 'int', height: 'int', channels: 'int' = 3, channel_first: 'bool' = False, device: 'Device | None' = None, use_cupy: 'bool' = False, dtype: 'object' = <class 'numpy.float32'>, channel_order: 'ChannelOrder | str | None' = None) -> "'Buffer'": <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
-Get height
+Create a new buffer with allocated storage.
 ```
-### load(device: oidn.Device, source, normalize, copy_data=True): <div style="text-align: right; float: right; color: #215f11">method</div> 
+### from\_array(device: 'Device', array: 'object', *, channel_order: 'ChannelOrder | str | None' = None, channel_first: 'bool' = False) -> "'Buffer'": <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
-Create a Buffer object from a data source.
-        Args:
-            device    : Device of the new Buffer object
-            soruce    : Data source, could be PIL.Image, numpy.ndarray, torch.Tensor. If it is PIL.Image, copy_data will always be True.
-            normalize : Normalize values into [0,1] by dividing 255(if source.dtype is uint8) or 65535(if source.dtype is uint16), useful for Image objects, if it is True, copy_data should also be True.
-            copy_data : Copy the source's data into a new container.
+Wrap an existing array buffer.
 ```
-### release(self): <div style="text-align: right; float: right; color: #215f11">method</div> 
+### load(device: 'Device', source: 'object', normalize: 'bool', copy_data: 'bool' = True, *, channel_order: 'ChannelOrder | str | None' = None, channel_first: 'bool' = False, use_cupy: 'bool' = False) -> "'Buffer'": <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
-Release corresponding resources.
+Create a buffer from a PIL image, numpy array, or torch tensor.
 ```
-### to\_array(self): <div style="text-align: right; float: right; color: #215f11">method</div> 
+### release(self) -> 'None': <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
-Returns:
-            numpy.ndarray
+Buffer data is owned by the backing array; no explicit release required.
 ```
-### to\_tensor(self): <div style="text-align: right; float: right; color: #215f11">method</div> 
+### to\_array(self) -> 'np.ndarray': <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
-Returns:
-            torch.Tensor
+Returns a numpy.ndarray copy of the buffer when possible.
 ```
-### width <div style="text-align: right; float: right; color: #21138d">property</div>  
+### to\_tensor(self) -> 'object': <div style="text-align: right; float: right; color: #215f11">method</div> 
 ```
-Get width
+Returns the backing torch.Tensor when available.
 ```

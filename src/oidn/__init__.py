@@ -1,6 +1,11 @@
-import importlib
+from __future__ import annotations
 
-import torch
+import importlib
+from dataclasses import dataclass
+from enum import Enum
+from typing import Callable, Mapping, Sequence, cast
+
+import numpy as np
 from PIL import Image
 
 from oidn import _backends, _ffi
@@ -130,221 +135,494 @@ class Device(AutoReleaseByContextManaeger):
         return self.__device_handle
 
 
-_torch = None
+_torch_module: object | None = None
+_cupy_module: object | None = None
+_dpctl_tensor_module: object | None = None
 
 
-def _lazy_load_torch(raise_if_no_torch=True):
-    global _torch
-    if _torch is None:
-        try:
-            _torch = importlib.import_module("torch")
-        except:
-            if raise_if_no_torch:
-                raise
-            else:
-                return None
-        if not _torch.cuda.is_available():
-            raise RuntimeError(
-                "Requires torch.cuda.is_available(), please check your torch installation."
-            )
-        return _torch
+def _load_module(name: str, *, reason: str) -> object:
+    try:
+        return importlib.import_module(name)
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(reason) from exc
+
+
+def _load_torch() -> object:
+    global _torch_module
+    if _torch_module is None:
+        _torch_module = _load_module(
+            "torch",
+            reason="CUDA/HIP backends require torch to be installed.",
+        )
+    return _torch_module
+
+
+def _load_cupy() -> object:
+    global _cupy_module
+    if _cupy_module is None:
+        _cupy_module = _load_module(
+            "cupy",
+            reason="CuPy is required to allocate CUDA/HIP buffers when use_cupy=True.",
+        )
+    return _cupy_module
+
+
+def _load_dpctl_tensor() -> object:
+    global _dpctl_tensor_module
+    if _dpctl_tensor_module is None:
+        _dpctl_tensor_module = _load_module(
+            "dpctl.tensor",
+            reason="SYCL backend requires dpctl for buffer allocation.",
+        )
+    return _dpctl_tensor_module
+
+
+def _require_callable(module: object, name: str) -> Callable[..., object]:
+    value = getattr(module, name, None)
+    if not callable(value):
+        raise RuntimeError(f"Module {module!r} is missing callable {name}.")
+    return cast(Callable[..., object], value)
+
+
+def _require_attr(module: object, name: str) -> object:
+    value = getattr(module, name, None)
+    if value is None:
+        raise RuntimeError(f"Module {module!r} is missing attribute {name}.")
+    return value
+
+
+def _require_type(module: object, name: str) -> type:
+    value = _require_attr(module, name)
+    if not isinstance(value, type):
+        raise RuntimeError(f"Module {module!r} attribute {name} is not a type.")
+    return value
+
+
+def _torch_cuda_available(torch_module: object) -> bool:
+    cuda = _require_attr(torch_module, "cuda")
+    is_available = _require_callable(cuda, "is_available")
+    return bool(is_available())
+
+
+def _torch_hip_available(torch_module: object) -> bool:
+    version = getattr(torch_module, "version", None)
+    if version is None:
+        return False
+    return getattr(version, "hip", None) is not None
+
+
+def _torch_dtype(torch_module: object, dtype: np.dtype) -> object:
+    if dtype == np.dtype("float32"):
+        return _require_attr(torch_module, "float32")
+    if dtype == np.dtype("float16"):
+        return _require_attr(torch_module, "float16")
+    raise ValueError(f"Unsupported dtype: {dtype}")
+
+
+def _resolve_numpy_dtype(dtype: object) -> np.dtype:
+    try:
+        resolved = np.dtype(dtype)
+    except TypeError as exc:
+        raise TypeError(f"Unsupported dtype: {dtype}") from exc
+    if resolved not in (np.dtype("float32"), np.dtype("float16")):
+        raise ValueError(f"Unsupported dtype: {resolved}")
+    return resolved
+
+
+class ChannelOrder(str, Enum):
+    HWC = "hwc"
+    CHW = "chw"
+
+    @classmethod
+    def parse(cls, value: "ChannelOrder | str") -> "ChannelOrder":
+        if isinstance(value, ChannelOrder):
+            return value
+        if not isinstance(value, str):
+            raise TypeError("channel_order must be a ChannelOrder or str")
+        normalized = value.strip().lower()
+        for member in cls:
+            if member.value == normalized:
+                return member
+        raise ValueError(f"Unsupported channel order: {value}")
+
+
+@dataclass(frozen=True, slots=True)
+class _ArraySpec:
+    pointer: int
+    shape: tuple[int, ...]
+    strides: tuple[int, ...] | None
+    dtype: np.dtype
+    read_only: bool
+
+
+def _tuple_of_ints(value: object, *, name: str) -> tuple[int, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise TypeError(f"{name} must be a sequence of integers.")
+    items: list[int] = []
+    for item in value:
+        if not isinstance(item, (int, np.integer)):
+            raise TypeError(f"{name} must contain integers.")
+        items.append(int(item))
+    return tuple(items)
+
+
+def _parse_pointer(data: object) -> tuple[int, bool]:
+    if isinstance(data, (tuple, list)) and len(data) == 2:
+        ptr, read_only = data
+    elif isinstance(data, Mapping):
+        if "ptr" in data:
+            ptr = data["ptr"]
+            read_only = data.get("read_only", False)
+        else:
+            raise TypeError("Array interface data mapping must include 'ptr'.")
     else:
-        return _torch
+        raise TypeError("Array interface data must be a tuple or mapping.")
+    if not isinstance(ptr, (int, np.integer)):
+        raise TypeError("Array interface pointer must be an integer.")
+    return int(ptr), bool(read_only)
 
 
+def _parse_array_interface(interface: Mapping[str, object]) -> _ArraySpec:
+    if "typestr" not in interface:
+        raise TypeError("Array interface missing 'typestr'.")
+    dtype = np.dtype(interface["typestr"])
+    shape = _tuple_of_ints(interface.get("shape"), name="shape")
+    strides_obj = interface.get("strides")
+    strides = None
+    if strides_obj is not None:
+        strides = _tuple_of_ints(strides_obj, name="strides")
+    pointer, read_only = _parse_pointer(interface.get("data"))
+    return _ArraySpec(pointer=pointer, shape=shape, strides=strides, dtype=dtype, read_only=read_only)
+
+
+def _expected_strides(shape: tuple[int, ...], itemsize: int) -> tuple[int, ...]:
+    stride = itemsize
+    expected: list[int] = []
+    for dim in reversed(shape):
+        expected.append(stride)
+        stride *= dim
+    return tuple(reversed(expected))
+
+
+def _is_c_contiguous(
+    shape: tuple[int, ...],
+    strides: tuple[int, ...] | None,
+    itemsize: int,
+) -> bool:
+    if strides is None:
+        return True
+    if any(value < 0 for value in strides):
+        return False
+    return strides == _expected_strides(shape, itemsize)
+
+
+def _resolve_channel_order(
+    channel_order: ChannelOrder | str | None,
+    channel_first: bool,
+) -> ChannelOrder:
+    if channel_order is None:
+        return ChannelOrder.CHW if channel_first else ChannelOrder.HWC
+    if channel_first:
+        raise ValueError("Specify channel_order or channel_first, not both.")
+    return ChannelOrder.parse(channel_order)
+
+
+def _infer_image_shape(
+    shape: tuple[int, ...],
+    channel_order: ChannelOrder,
+) -> tuple[int, int, int]:
+    if len(shape) == 2:
+        height, width = shape
+        channels = 1
+    elif len(shape) == 3:
+        if channel_order is not ChannelOrder.HWC:
+            raise ValueError("Channel order CHW is not supported.")
+        height, width, channels = shape
+    else:
+        raise ValueError("Array must have shape (H, W) or (H, W, C).")
+    if height <= 0 or width <= 0:
+        raise ValueError("Width and height must be positive.")
+    if channels not in (1, 2, 3, 4):
+        raise ValueError("Channels must be 1, 2, 3, or 4.")
+    return height, width, channels
+
+
+def _format_for_dtype(dtype: np.dtype, channels: int) -> int:
+    if dtype == np.dtype("float32"):
+        formats = {
+            1: FORMAT_FLOAT,
+            2: FORMAT_FLOAT2,
+            3: FORMAT_FLOAT3,
+            4: FORMAT_FLOAT4,
+        }
+    elif dtype == np.dtype("float16"):
+        formats = {
+            1: FORMAT_HALF,
+            2: FORMAT_HALF2,
+            3: FORMAT_HALF3,
+            4: FORMAT_HALF4,
+        }
+    else:
+        raise ValueError(f"Unsupported dtype: {dtype}")
+    return formats[channels]
+
+
+def _array_interface_for_backend(device: Device, array: object) -> Mapping[str, object]:
+    backend = device.backend
+    if backend is Backend.CPU:
+        attr = "__array_interface__"
+    elif backend is Backend.CUDA:
+        attr = "__cuda_array_interface__"
+    elif backend is Backend.HIP:
+        if hasattr(array, "__hip_array_interface__"):
+            attr = "__hip_array_interface__"
+        else:
+            attr = "__cuda_array_interface__"
+    elif backend is Backend.SYCL:
+        attr = "__sycl_usm_array_interface__"
+    else:
+        raise NotImplementedError(f"Backend {backend.value} buffer interface is not supported.")
+    interface = getattr(array, attr, None)
+    if not isinstance(interface, Mapping):
+        raise TypeError(f"Object does not expose {attr}.")
+    return interface
+
+
+def _byte_strides(
+    shape: tuple[int, ...],
+    strides: tuple[int, ...] | None,
+    itemsize: int,
+) -> tuple[int, int]:
+    if strides is None:
+        if len(shape) == 2:
+            height, width = shape
+            return width * itemsize, itemsize
+        height, width, channels = shape
+        return width * channels * itemsize, channels * itemsize
+    if len(strides) == 2:
+        return strides[0], strides[1]
+    return strides[0], strides[1]
+
+
+@dataclass(slots=True)
 class Buffer(AutoReleaseByContextManaeger):
-    def __init__(self, device: Device, width=0, height=0) -> None:
-        """
-        Do not call this.
-        """
-        self.device = device
-        self.buffer_delegate = None
-        self.format = None
-        self.channel_first = False
-        self.__width = width
-        self.__height = height
+    device: Device
+    buffer_delegate: object
+    format: int
+    channel_order: ChannelOrder
+    width: int
+    height: int
+    channels: int
+    byte_offset: int
+    byte_pixel_stride: int
+    byte_row_stride: int
+    data_ptr: int
+    dtype: np.dtype
 
-    def release(self):
+    @property
+    def channel_first(self) -> bool:
         """
-        Release corresponding resources.
+        Indicate whether the buffer is channel-first.
         """
-        self.buffer_delegate = None
+        return self.channel_order is ChannelOrder.CHW
+
+    def release(self) -> None:
+        """
+        Buffer data is owned by the backing array; no explicit release required.
+        """
+        return None
+
+    @classmethod
+    def from_array(
+        cls,
+        device: Device,
+        array: object,
+        *,
+        channel_order: ChannelOrder | str | None = None,
+        channel_first: bool = False,
+    ) -> "Buffer":
+        """
+        Wrap an existing array buffer.
+        """
+        order = _resolve_channel_order(channel_order, channel_first)
+        interface = _array_interface_for_backend(device, array)
+        spec = _parse_array_interface(interface)
+        dtype = _resolve_numpy_dtype(spec.dtype)
+        height, width, channels = _infer_image_shape(spec.shape, order)
+        if not _is_c_contiguous(spec.shape, spec.strides, dtype.itemsize):
+            raise ValueError("Array must be C-contiguous.")
+        byte_row_stride, byte_pixel_stride = _byte_strides(spec.shape, spec.strides, dtype.itemsize)
+        format_value = _format_for_dtype(dtype, channels)
+        return cls(
+            device=device,
+            buffer_delegate=array,
+            format=format_value,
+            channel_order=order,
+            width=width,
+            height=height,
+            channels=channels,
+            byte_offset=0,
+            byte_pixel_stride=byte_pixel_stride,
+            byte_row_stride=byte_row_stride,
+            data_ptr=spec.pointer,
+            dtype=dtype,
+        )
 
     @classmethod
     def create(
         cls,
         width: int,
         height: int,
-        channels=3,
-        channel_first=False,
-        device: Device = None,
-        use_cupy=False,
-        dtype=np.float32,
-    ):
-        r"""
-        Create a buffer.
-
-        Args:
-            width    : width in pixel
-            height   : height in pixel
-            channels : channels of the image, it could be 0 or None.
-            channel_first : If it is true and channels is not zero(None), self.buffer_delegate will be shaped to (channles, height, width), otherwise (height, width, channels).
-                            If the chennels parameter is zero(None), the shape will be (height, width) regardless channel_first.
-            device   : Device. If is_cpu, self.buffer_delegate will be a numpy.ndarray, otherwise, if use_cupy is specified, the buffer_delegate will be a cupy.ndarray, otherwise it will be a torch.Tensor with device='cuda'.
-            use_cupy : Use cupy, it is not implemented in OIDN-python 0.4.
-            dtype    : could be np.float32, torch.float16(if supported)
+        channels: int = 3,
+        channel_first: bool = False,
+        device: Device | None = None,
+        use_cupy: bool = False,
+        dtype: object = np.float32,
+        channel_order: ChannelOrder | str | None = None,
+    ) -> "Buffer":
         """
-        bf = cls(device, width, height)
-        storage_shape = None
-        if channels == 0 or channels is None:
-            storage_shape = (height, width)
-        else:
-            if channel_first:
-                storage_shape = (channels, height, width)
-            else:
-                storage_shape = (height, width, channels)
+        Create a new buffer with allocated storage.
+        """
+        if device is None:
+            raise ValueError("device must be provided.")
+        order = _resolve_channel_order(channel_order, channel_first)
+        if order is ChannelOrder.CHW:
+            raise ValueError("Channel order CHW is not supported.")
+        resolved_dtype = _resolve_numpy_dtype(dtype)
+        channels_value = 1 if channels in (0, None) else channels
+        if channels_value not in (1, 2, 3, 4):
+            raise ValueError("channels must be 1, 2, 3, or 4.")
+        shape = (height, width) if channels_value == 1 else (height, width, channels_value)
 
-        if device.is_cpu:
-            bf.buffer_delegate = np.zeros(shape=storage_shape, dtype=dtype)
-        else:
+        if device.backend is Backend.CPU:
+            buffer = np.zeros(shape=shape, dtype=resolved_dtype)
+        elif device.backend in (Backend.CUDA, Backend.HIP):
             if use_cupy:
-                raise NotImplementedError("Not implemented...")
+                cupy = _load_cupy()
+                zeros = _require_callable(cupy, "zeros")
+                buffer = zeros(shape, dtype=resolved_dtype)
             else:
-                torch = _lazy_load_torch(raise_if_no_torch=False)
-                if torch:
-                    bf.buffer_delegate = torch.zeros(shape=storage_shape, dtype=dtype)
-                else:
-                    raise RuntimeError("torch is not installed")
-
-        F32_FMTS = [FORMAT_FLOAT, FORMAT_FLOAT, FORMAT_FLOAT2, FORMAT_FLOAT3, FORMAT_FLOAT4]
-        F16_FMTS = [FORMAT_HALF, FORMAT_HALF, FORMAT_HALF2, FORMAT_HALF3, FORMAT_HALF4]
-
-        if channels is None:
-            channels = 0
-        if dtype == np.float32:
-            bf.format = F32_FMTS[channels]
+                torch = _load_torch()
+                if not _torch_cuda_available(torch):
+                    raise RuntimeError("torch.cuda.is_available() is False.")
+                if device.backend is Backend.HIP and not _torch_hip_available(torch):
+                    raise RuntimeError("HIP backend requires a ROCm-enabled torch build.")
+                device_name = "cuda"
+                torch_dtype = _torch_dtype(torch, resolved_dtype)
+                zeros = _require_callable(torch, "zeros")
+                buffer = zeros(shape, dtype=torch_dtype, device=device_name)
+        elif device.backend is Backend.SYCL:
+            dpctl_tensor = _load_dpctl_tensor()
+            zeros = _require_callable(dpctl_tensor, "zeros")
+            buffer = zeros(shape, dtype=resolved_dtype)
         else:
-            torch = _lazy_load_torch(raise_if_no_torch=False)
-            if torch and dtype == torch.float16:
-                bf.format = F16_FMTS[channels]
-            else:
-                raise RuntimeError("torch is not installed")
-        bf.channel_first = channel_first
-        return bf
+            raise NotImplementedError(f"Backend {device.backend.value} buffer allocation is not supported.")
+
+        return cls.from_array(device, buffer, channel_order=order)
 
     @classmethod
-    def load(cls, device: Device, source, normalize, copy_data=True):
+    def load(
+        cls,
+        device: Device,
+        source: object,
+        normalize: bool,
+        copy_data: bool = True,
+        *,
+        channel_order: ChannelOrder | str | None = None,
+        channel_first: bool = False,
+        use_cupy: bool = False,
+    ) -> "Buffer":
         """
-        Create a Buffer object from a data source.
-        Args:
-            device    : Device of the new Buffer object
-            soruce    : Data source, could be PIL.Image, numpy.ndarray, torch.Tensor. If it is PIL.Image, copy_data will always be True.
-            normalize : Normalize values into [0,1] by dividing 255(if source.dtype is uint8) or 65535(if source.dtype is uint16), useful for Image objects, if it is True, copy_data should also be True.
-            copy_data : Copy the source's data into a new container.
+        Create a buffer from a PIL image, numpy array, or torch tensor.
         """
-        if normalize and (not copy_data):
-            raise RuntimeError("Setting div255 = True requires copy_data = True")
+        order = _resolve_channel_order(channel_order, channel_first)
+        if normalize and not copy_data:
+            raise RuntimeError("normalize=True requires copy_data=True.")
 
         if isinstance(source, Image.Image):
-            # source : Image = source
-            x_np = np.array(source)
+            array = np.array(source)
             if normalize:
-                if x_np.dtype == np.uint8:
-                    x_np = x_np.astype(np.float32) / 255.0
-                elif x_np.dtype == np.uint16:
-                    x_np = x_np.astype(np.float32) / 65535.0
+                if array.dtype == np.uint8:
+                    array = array.astype(np.float32) / 255.0
+                elif array.dtype == np.uint16:
+                    array = array.astype(np.float32) / 65535.0
         elif isinstance(source, np.ndarray):
-            if not copy_data:
-                x_np = source
-            else:
-                x_np = np.array(source)
+            array = source if not copy_data else np.array(source)
             if normalize:
-                if x_np.dtype == np.uint8:
-                    x_np = x_np.astype(np.float32) / 255.0
-                elif x_np.dtype == np.uint16:
-                    x_np = x_np.astype(np.float32) / 65535.0
+                if array.dtype == np.uint8:
+                    array = array.astype(np.float32) / 255.0
+                elif array.dtype == np.uint16:
+                    array = array.astype(np.float32) / 65535.0
         else:
-            torch = _lazy_load_torch(False)
-            if torch and isinstance(source, torch.Tensor):
-                if source.is_cuda:
-                    if not copy_data:
-                        x_pt = source
-                    else:
-                        x_pt = torch.tensor(source)
+            torch = _load_torch()
+            tensor_type = _require_type(torch, "Tensor")
+            if isinstance(source, tensor_type):
+                if device.backend is Backend.CPU:
+                    array = source.detach().cpu().numpy()
                     if normalize:
-                        if x_pt.dtype == torch.uint8:
-                            x_pt = x_pt.float() / 255.0
-                        elif x_pt.dtype == torch.short:
-                            x_pt = x_pt.float() / 65535.0
+                        array = array.astype(np.float32) / 255.0 if array.dtype == np.uint8 else array
                 else:
-                    raise RuntimeError("Requires source.is_cuda when source is a torch.Tensor")
+                    if not getattr(source, "is_cuda", False):
+                        raise RuntimeError("Torch tensor must be on CUDA for GPU backends.")
+                    tensor = source if not copy_data else _require_callable(torch, "tensor")(source)
+                    if normalize:
+                        dtype = getattr(tensor, "dtype", None)
+                        uint8_dtype = getattr(torch, "uint8", None)
+                        int16_dtype = getattr(torch, "int16", None) or getattr(torch, "short", None)
+                        if uint8_dtype is not None and dtype == uint8_dtype:
+                            tensor = tensor.float() / 255.0
+                        elif int16_dtype is not None and dtype == int16_dtype:
+                            tensor = tensor.float() / 65535.0
+                    array = tensor
             else:
                 raise NotImplementedError(f"Not implemented sharing buffer from {type(source)}")
 
-        if isinstance(source, Image.Image) or isinstance(source, np.ndarray):
-            bf = Buffer.create(
-                x_np.shape[1],
-                x_np.shape[0],
-                x_np.shape[2] if len(x_np.shape) > 2 else 0,
-                channel_first=False,
-                device=device,
-                use_cupy=False,
-            )
-            if device.is_cpu:
-                bf.buffer_delegate = x_np
-            else:
-                bf.buffer_delegate = torch.tensor(x_np, device="cuda")
+        if device.backend is Backend.CPU:
+            return cls.from_array(device, array, channel_order=order)
+        if device.backend in (Backend.CUDA, Backend.HIP):
+            if isinstance(array, np.ndarray):
+                if use_cupy:
+                    cupy = _load_cupy()
+                    asarray = _require_callable(cupy, "asarray")
+                    array = asarray(array, dtype=_resolve_numpy_dtype(array.dtype))
+                else:
+                    torch = _load_torch()
+                    if not _torch_cuda_available(torch):
+                        raise RuntimeError("torch.cuda.is_available() is False.")
+                    if device.backend is Backend.HIP and not _torch_hip_available(torch):
+                        raise RuntimeError("HIP backend requires a ROCm-enabled torch build.")
+                    torch_dtype = _torch_dtype(torch, _resolve_numpy_dtype(array.dtype))
+                    array = _require_callable(torch, "tensor")(array, device="cuda", dtype=torch_dtype)
+            return cls.from_array(device, array, channel_order=order)
+        if device.backend is Backend.SYCL:
+            if isinstance(array, np.ndarray):
+                dpctl_tensor = _load_dpctl_tensor()
+                asarray = _require_callable(dpctl_tensor, "asarray")
+                array = asarray(array, dtype=_resolve_numpy_dtype(array.dtype))
+            return cls.from_array(device, array, channel_order=order)
+        raise NotImplementedError(f"Backend {device.backend.value} buffer loading is not supported.")
 
-        else:  # torch.Tensor, checked previously
-            bf = Buffer.create(
-                x_pt.shape[1],
-                x_pt.shape[0],
-                x_pt.shape[2] if len(x_pt.shape) > 2 else 0,
-                channel_first=False,
-                device=device,
-                use_cupy=False,
-            )
-
-            if device.is_cpu:
-                bf.buffer_delegate = x_pt.detach().cpu().numpy()
-            else:
-                bf.buffer_delegate = x_pt
-
-        return bf
-
-    def to_tensor(self):
+    def to_tensor(self) -> object:
         """
-        Returns:
-            torch.Tensor
+        Returns the backing torch.Tensor when available.
         """
-        if isinstance(self.buffer_delegate, torch.Tensor):
+        torch = _load_torch()
+        tensor_type = _require_type(torch, "Tensor")
+        if isinstance(self.buffer_delegate, tensor_type):
             return self.buffer_delegate
-        else:
-            raise RuntimeError("Can't convert cpu buffer to torch.Tensor")
+        raise RuntimeError("Buffer is not backed by a torch.Tensor.")
 
-    def to_array(self):
+    def to_array(self) -> np.ndarray:
         """
-        Returns:
-            numpy.ndarray
+        Returns a numpy.ndarray copy of the buffer when possible.
         """
         if isinstance(self.buffer_delegate, np.ndarray):
             return self.buffer_delegate
-        else:
+        torch = _load_torch()
+        tensor_type = _require_type(torch, "Tensor")
+        if isinstance(self.buffer_delegate, tensor_type):
             return self.buffer_delegate.detach().cpu().numpy()
-
-    @property
-    def width(self):
-        """
-        Get width
-        """
-        return self.__width
-
-    @property
-    def height(self):
-        """
-        Get height
-        """
-        return self.__height
+        raise RuntimeError("Buffer cannot be converted to a numpy array.")
 
 
 class Filter(AutoReleaseByContextManaeger):
@@ -355,13 +633,13 @@ class Filter(AutoReleaseByContextManaeger):
             type   : 'RT' or 'RTLightmap'
         """
         self.device = device
-        self.__filter_handle: int = NewFilter(device_handle=device.device_handle, type=type)
-        if not self.filter_handle:
+        self.type = type
+        self.__filter_handle = NewFilter(device_handle=device.device_handle, type=type)
+        if not self.__filter_handle:
             raise RuntimeError("Can't create filter")
         device.raise_if_error()
-        CommitFilter(self.filter_handle)
-
-    # device.raise_if_error()
+        CommitFilter(self.__filter_handle)
+        self._image_size: tuple[int, int] | None = None
 
     @property
     def filter_handle(self) -> int:
@@ -370,71 +648,163 @@ class Filter(AutoReleaseByContextManaeger):
         """
         return self.__filter_handle
 
-    def release(self):
+    def release(self) -> None:
         r"""
-        Call ReleaseFilter with self.fitler_handle
+        Call ReleaseFilter with self.filter_handle
         """
         if self.__filter_handle:
             ReleaseFilter(self.__filter_handle)
         self.__filter_handle = 0
 
-    def set_image(self, name: str, buffer: Buffer):
+    def set_image(self, name: str, buffer: Buffer) -> None:
         r"""
         Set image buffer for the filter.
 
         Args:
             name    : color/albedo/normal/output
-            -------
-                color : input beauty image (3 channels, LDR values in [0, 1] or HDR values in [0, +∞), values being interpreted such that, after scaling with the inputScale parameter, a value of 1 corresponds to a luminance level of 100 cd/m²)
-                albedo (only support RT filter) : input auxiliary image containing the albedo per pixel (3 channels, values in [0, 1])
-                normal (only support RT filter) : input auxiliary image containing the shading normal per pixel (3 channels, world-space or view-space vectors with arbitrary length, values in [-1, 1])
-                output : output image (3 channels); can be one of the input images
-            -------
-
             buffer  : Buffer object
         """
-        if self.device.is_cpu and (not buffer.device.is_cpu):
-            raise RuntimeError("The filter is on CPU but the buffer is not")
-        if self.device.is_cuda and (not buffer.device.is_cuda):
-            raise RuntimeError("The filter is on CUDA but the buffer is not")
+        name_value = name.strip().lower()
+        if name_value not in {"color", "albedo", "normal", "output"}:
+            raise ValueError(f"Unsupported image name: {name}")
+        if name_value in {"albedo", "normal"} and self.type != "RT":
+            raise RuntimeError(f"{name_value} is only supported for RT filters.")
+        if buffer.device.backend is not self.device.backend:
+            raise RuntimeError("Buffer backend does not match device backend.")
+        if buffer.channel_order is not ChannelOrder.HWC:
+            raise RuntimeError("Buffer must use HWC channel order.")
+        if buffer.channels != 3:
+            raise RuntimeError("Buffers must have 3 channels for OIDN filters.")
 
-        def is_c_contiguous(b: Buffer):
-            if isinstance(b.buffer_delegate, np.ndarray):
-                return b.buffer_delegate.flags.c_contiguous
-            else:
-                return b.buffer_delegate.is_contiguous()
+        if self._image_size is None:
+            self._image_size = (buffer.width, buffer.height)
+        if self._image_size != (buffer.width, buffer.height):
+            raise RuntimeError("All filter images must share the same dimensions.")
 
-        def get_shape(b: Buffer):
-            return b.buffer_delegate.shape
-
-        def get_array_interface(b: Buffer):
-            if isinstance(b.buffer_delegate, np.ndarray):
-                return b.buffer_delegate.__array_interface__
-            else:
-                return b.buffer_delegate.__cuda_array_interface__
-
-        SetSharedFilterImageEx(
-            self.filter_handle,
-            name,
-            buffer,
-            get_shape=get_shape,
-            check_c_contiguous=is_c_contiguous,
-            get_array_interface=get_array_interface,
-            format=buffer.format,
-            width=buffer.width,
-            height=buffer.height,
+        functions = _ffi.get_functions()
+        functions.oidnSetSharedFilterImage(
+            self.__filter_handle,
+            name_value.encode("ascii"),
+            buffer.data_ptr,
+            buffer.format,
+            buffer.width,
+            buffer.height,
+            buffer.byte_offset,
+            buffer.byte_pixel_stride,
+            buffer.byte_row_stride,
         )
 
-    # CommitFilter(self.filter_handle)
-    # self.device.raise_if_error()
+    def set_images(
+        self,
+        *,
+        color: Buffer,
+        output: Buffer,
+        albedo: Buffer | None = None,
+        normal: Buffer | None = None,
+    ) -> None:
+        """
+        Set the filter images in a single call.
+        """
+        self.set_image("color", color)
+        if albedo is not None:
+            self.set_image("albedo", albedo)
+        if normal is not None:
+            self.set_image("normal", normal)
+        self.set_image("output", output)
 
-    def execute(self):
+    def execute(self) -> None:
         r"""
         Run the filter, wait until finished.
         """
-        if self.filter_handle:
-            CommitFilter(self.filter_handle)
-            ExecuteFilter(self.filter_handle)
-            self.device.raise_if_error()
-        else:
+        if not self.__filter_handle:
             raise RuntimeError("Invalid filter handle")
+        CommitFilter(self.__filter_handle)
+        ExecuteFilter(self.__filter_handle)
+        self.device.raise_if_error()
+
+
+def _ensure_buffer(
+    device: Device,
+    value: Buffer | object,
+    *,
+    channel_order: ChannelOrder | str | None,
+    channel_first: bool,
+) -> Buffer:
+    if isinstance(value, Buffer):
+        return value
+    return Buffer.from_array(
+        device,
+        value,
+        channel_order=channel_order,
+        channel_first=channel_first,
+    )
+
+
+def denoise(
+    color: Buffer | object,
+    *,
+    albedo: Buffer | object | None = None,
+    normal: Buffer | object | None = None,
+    output: Buffer | object | None = None,
+    device: Device | None = None,
+    backend: Backend | str | None = None,
+    options: DeviceOptions | None = None,
+    filter_type: str = "RT",
+    channel_order: ChannelOrder | str | None = None,
+    channel_first: bool = False,
+) -> Buffer:
+    """
+    Convenience API for denoising with optional auxiliary images.
+    """
+    created_device = False
+    if device is None:
+        device = Device(backend=backend, options=options)
+        created_device = True
+
+    try:
+        color_buffer = _ensure_buffer(
+            device,
+            color,
+            channel_order=channel_order,
+            channel_first=channel_first,
+        )
+        albedo_buffer = (
+            _ensure_buffer(device, albedo, channel_order=channel_order, channel_first=channel_first)
+            if albedo is not None
+            else None
+        )
+        normal_buffer = (
+            _ensure_buffer(device, normal, channel_order=channel_order, channel_first=channel_first)
+            if normal is not None
+            else None
+        )
+        if output is None:
+            output_buffer = Buffer.create(
+                color_buffer.width,
+                color_buffer.height,
+                channels=color_buffer.channels,
+                device=device,
+                dtype=color_buffer.dtype,
+                channel_order=channel_order,
+                channel_first=channel_first,
+            )
+        else:
+            output_buffer = _ensure_buffer(
+                device,
+                output,
+                channel_order=channel_order,
+                channel_first=channel_first,
+            )
+
+        with Filter(device, filter_type) as filter_obj:
+            filter_obj.set_images(
+                color=color_buffer,
+                output=output_buffer,
+                albedo=albedo_buffer,
+                normal=normal_buffer,
+            )
+            filter_obj.execute()
+        return output_buffer
+    finally:
+        if created_device:
+            device.release()

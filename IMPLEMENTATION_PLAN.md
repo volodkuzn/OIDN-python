@@ -97,6 +97,13 @@ Deliverables
 - Extend `Filter` wrapper to accept `color`, `albedo`, `normal`, `output`.
 - Provide a high-level convenience API for denoising with optional auxiliary images.
 
+Status (2026-01-22)
+- [x] Added `Buffer` with array-interface validation for CPU/CUDA/HIP/SYCL and strict dtype/shape checks.
+- [x] Enforced HWC channel order and contiguous layouts with stride-aware metadata.
+- [x] Updated `Filter` to validate auxiliary images and set color/albedo/normal/output buffers.
+- [x] Added `denoise` convenience API with optional aux images and buffer creation.
+- [x] Added unit tests covering buffer interfaces, filter validation, and denoise flow.
+
 Deliverables
 - `Device`, `Buffer`, `Filter` with backend-aware behavior and aux image support.
 
