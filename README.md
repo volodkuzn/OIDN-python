@@ -1,34 +1,75 @@
 # OIDN-python
-Python Binding of [Intel Open Image Denoise](https://github.com/OpenImageDenoise/oidn) Version 0.4 (Based on OIDN 2.1.0, **NOT FINISHED**)
+Python binding for [Intel Open Image Denoise](https://github.com/OpenImageDenoise/oidn).
 
-Install using pip.(support macos_aarch64, win_amd64, linux_x64).
+The latest OIDN source is pinned as a git submodule under `oidn_cpp`, and wheels bundle
+the corresponding native libraries. Backend availability depends on the packaged libs
+and the runtime toolchains on your machine.
+
+## Install
 
 ```
 pip install oidn
 ```
 
-This repository uses a `pyproject.toml`-based build (no `setup.py` flow). Use `uv` for
-dependency management during development.
+Optional runtime dependencies (only needed for the backend you use):
+- CUDA/HIP: `torch` (install with `pip install oidn[cuda]` or `pip install oidn[hip]`).
+- CUDA/HIP with CuPy: install the appropriate `cupy` package for your CUDA version.
+- SYCL: `dpctl` (install with `pip install oidn[sycl]`).
 
-# Features(version 0.4)
+## Quick start
 
-## C API wrapper
+```python
+import numpy as np
+import oidn
 
-- Wrap original OIDN C APIs using ctypes. functions are stripped oidn prefix, macros are stripped OIDN_ prefix. For example oidnNewDevice -> oidn.NewDevice, OIDN_FORMAT_FLOAT3 -> oidn.FORMAT_FLOAT3. 
+color = np.zeros((256, 256, 3), dtype=np.float32)
+albedo = np.zeros_like(color)
+normal = np.zeros_like(color)
 
-- Discard buffer APIs, use numpy array as buffers.
+output = oidn.denoise(color, albedo=albedo, normal=normal, backend="cpu")
+```
 
-## Object-Oriented Interface
+## Backend selection
 
-OOP style interface will be finished in version 1.0
+```python
+import oidn
+
+print(oidn.available_backends())
+print(oidn.is_backend_available("cuda"))
+
+device = oidn.Device(backend="cuda")
+```
+
+## Buffers and layout
+
+Buffers must be HWC (height, width, channels) and C-contiguous. Use:
+- `Buffer.from_array(device, array)` to wrap an existing array.
+- `Buffer.create(...)` to allocate a new buffer.
+- `Buffer.load(...)` for PIL images or numpy arrays (with optional normalization).
+
+## Auxiliary images
+
+```python
+import numpy as np
+import oidn
+
+device = oidn.Device("cpu")
+color = oidn.Buffer.from_array(device, np.zeros((64, 64, 3), dtype=np.float32))
+albedo = oidn.Buffer.from_array(device, np.zeros((64, 64, 3), dtype=np.float32))
+normal = oidn.Buffer.from_array(device, np.zeros((64, 64, 3), dtype=np.float32))
+output = oidn.Buffer.create(64, 64, device=device)
+
+with oidn.Filter(device, "RT") as filter_obj:
+    filter_obj.set_images(color=color, albedo=albedo, normal=normal, output=output)
+    filter_obj.execute()
+```
 
 ## Architecture overview
 
-- `src/oidn/capi.py` defines the ctypes binding layer and thin wrappers around the OIDN C API.
-- `src/oidn/__init__.py` loads the platform-specific shared libraries from `src/oidn/lib.*`, initializes bindings, and re-exports the C API wrapper functions.
-- Pythonic API lives in `src/oidn/__init__.py` as `Device`, `Filter`, and `Buffer` classes with context-manager lifetimes.
-- Buffers are NumPy arrays on CPU; CUDA uses optional Torch tensors and the `__cuda_array_interface__` pointer path to the C API.
-- `generate_doc.py` regenerates `APIs.md` via module introspection; `src/oidn/__main__.py` is a minimal CLI stub.
+- `src/oidn/_ffi.py` binds the OIDN C API via ctypes and loads shared libraries.
+- `src/oidn/_backends.py` provides backend discovery and runtime checks.
+- `src/oidn/__init__.py` exposes the public API (`Device`, `Buffer`, `Filter`, `denoise`).
+- `generate_doc.py` regenerates `APIs.md` via module introspection.
 
 ## Development
 
@@ -59,94 +100,21 @@ Use `python scripts/stage_oidn_libs.py --clean` to refresh the staged libraries.
 By default, build outputs are written under `oidn_cpp/build` and `oidn_cpp/install`.
 Metal builds require the Xcode Metal toolchain (`xcodebuild -downloadComponent MetalToolchain`).
 
-# Example denoising image
+### API docs
 
-Denoise image rendered by a monte carlo ray tracer. [code](./tests/DenoiseCornellBox/DenoiseCornellBox.py)
-
-```python 
-from pathlib import Path
-import sys
-import numpy as np
-from PIL import Image
-
-here = Path(__file__).parent.absolute()
-sys.path.append((here.parent.parent / "src").as_posix())
-
-import oidn
-
-img = np.array(Image.open((here / "CornellBoxNoisy.png").as_posix()), dtype=np.float32) / 255.0
-
-result = np.zeros_like(img, dtype=np.float32)
-
-device = oidn.NewDevice()
-oidn.CommitDevice(device)
-
-filter = oidn.NewFilter(device, "RT")
-oidn.SetSharedFilterImage(
-    filter, "color", img, oidn.FORMAT_FLOAT3, img.shape[1], img.shape[0]
-)
-oidn.SetSharedFilterImage(
-    filter, "output", result, oidn.FORMAT_FLOAT3, img.shape[1], img.shape[0]
-)
-oidn.CommitFilter(filter)
-oidn.ExecuteFilter(filter)
-
-result = np.array(np.clip(result * 255, 0, 255), dtype=np.uint8)
-resultImage = Image.fromarray(result)
-resultImage.save(f"{here}/CornellBoxDenoised.png")
-
-oidn.ReleaseFilter(filter)
-oidn.ReleaseDevice(device)
+```
+python generate_doc.py
 ```
 
-The image in left is before denoised, rendered by a Monte-Carlo PathTracer, spp=10, width=height=1000. The image in right is after denoised.
+## Known limitations
+- HWC layout only (CHW is not supported).
+- Metal buffer allocation is not exposed yet.
+- GPU backends require the matching runtime/toolkit on the host.
 
-<div>
-<div style="width:48%; display: inline-block"> 
-<img src="tests/DenoiseCornellBox/CornellBoxNoisy.png">
-</div>
-<div style="width:48%; display: inline-block"> 
-<img src="tests/DenoiseCornellBox/CornellBoxDenoisedAsExample.png">
-</div>
-</div>
-
-There's also more pythonic APIs (**Not** bindings of OIDN C++ API) 
-
-```python
-from pathlib import Path
-import sys
-import numpy as np
-from PIL import Image
-
-here = Path(__file__).parent.absolute()
-sys.path.append((here.parent.parent / "src").as_posix())
-
-import oidn
-
-with oidn.Device('cpu') as device, oidn.Filter(device, 'RT') as filter:
-    input = oidn.Buffer.load(device, Image.open((here / "CornellBoxNoisy.png").as_posix()), div255=True)
-    output = oidn.Buffer.create(input.width, input.height, device=device)
-    filter.set_image("color", input)
-    filter.set_image("output", output)
-    filter.execute()
-    Image.fromarray( np.array(np.clip(output.to_array() * 255, 0, 255), dtype=np.uint8) ).save(f"{here}/CornellBoxDenoised.png")
-```
-
-# Pending Features
-- Support for SYCL and HIP devices.
-- Asynchronized executing/buffering APIs. 
-
-# Update Log
-- 0.4 : CUDA device is supported now, torch.Tensor could be passed as GPU buffers. Torch is counted into optional dependencies.
-- 0.3.1alpha : Update to new oidn version 2.1.0. Only CPU device is supported at the moment.
-- 0.3alpha : Warp nearly full APIs of OIDN1.4.3 in oidn.h. (excluding buffer APIs, buffers are substituted numpy array), add function \_\_doc\_\_, to be comprehensively test.
-- 0.2.1 : Support win_amd64 and manylinux1_x86_64 platform.
-- 0.2 : Wrap basic device and filter APIs, Initial support for macosx_12_0_arm64 platform.
-
-# License:
+## License
 
 Apache 2.0
 
-# API Document
+## API Document
 
 See [here](APIs.md).

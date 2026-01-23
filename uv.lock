@@ -288,6 +288,30 @@ wheels = [
 ]
 
 [[package]]
+name = "dpctl"
+version = "0.21.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "intel-cmplr-lib-rt" },
+    { name = "intel-sycl-rt" },
+    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "numpy", version = "2.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/72/22/fa6376a89c263f1ae1529aeaa044ff6ef79ecfb02d1cff66ce02f718021d/dpctl-0.21.1-0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:a6c3c8eddb921b7bc3e2285ebf72f91e74a116452b0b140464d4a29044e18eb8", size = 27760836, upload-time = "2025-12-18T03:09:27.519Z" },
+    { url = "https://files.pythonhosted.org/packages/75/54/4252e337a0ba9f1d690b397ad841698050d15650cda7f2eed6b63692f567/dpctl-0.21.1-0-cp310-cp310-win_amd64.whl", hash = "sha256:270537cd9d09cd092b03178cd5e6738bdc310487c2a89312d9ec640d4dd4fc3d", size = 27184681, upload-time = "2025-12-18T03:09:38.153Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/74/7320d4af2af94509e5f75d9e30da43301a872bf900466c785318499785c6/dpctl-0.21.1-0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:cdfdf72bc7d41de3297367f3aabcbdb321c6eb409b07fc78c9d07d8c0a0b3213", size = 27760872, upload-time = "2025-12-18T03:09:48.818Z" },
+    { url = "https://files.pythonhosted.org/packages/07/37/379ced80d369251a8b1127c8d30de9746fdb0c0091b3e19814929fe73fa4/dpctl-0.21.1-0-cp311-cp311-win_amd64.whl", hash = "sha256:8f2c6093576bf716f845083c76212a70e66090491f317cad0c609a768042937f", size = 27216536, upload-time = "2025-12-18T03:10:09.665Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/e3/d35f1d3d5ecf9c028b1fd0f664316e448c4742e3b9b86b8a538387df7be1/dpctl-0.21.1-0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:95e0e9dfd4eaae7e054cded54cf10c9d9a7e65d2d589e4028e488e4d746054f4", size = 27784446, upload-time = "2025-12-18T03:10:40.694Z" },
+    { url = "https://files.pythonhosted.org/packages/38/ea/ee4dd227bfd85f89e15456104cbc7ee5ce80ed4576350232b3f8ba2cec55/dpctl-0.21.1-0-cp312-cp312-win_amd64.whl", hash = "sha256:aa1c857bc2925b93eb3c3e8c2a25ae55dc9459cb4a10247c7108de3aa22e75d5", size = 27230141, upload-time = "2025-12-18T03:11:11.88Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/93/a47888c23aee1deb2c7c1aecc848fff1a1d100dfaf1c91ea0e11803da63e/dpctl-0.21.1-0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:9f1e447a89f8418ca8d633756146c3ac203b6cedbb27a02f3a2070843d28b1a2", size = 27782873, upload-time = "2025-12-18T03:11:43.259Z" },
+    { url = "https://files.pythonhosted.org/packages/17/99/b4d5d8bf9d54ac6130e587342149b200a868ee7e98466a0dff38d4621450/dpctl-0.21.1-0-cp313-cp313-win_amd64.whl", hash = "sha256:3a7405ca7638497372d9fa6299a34ffd0b39998a0cf1bf4c3fd38c5481fa7f65", size = 27256506, upload-time = "2025-12-18T03:12:04.214Z" },
+    { url = "https://files.pythonhosted.org/packages/89/13/20f73eb2e9db6b806df80bc2b6d2026f5968de7383e745876755a4e010b8/dpctl-0.21.1-0-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:1fcce16b09086a671e9541245303e56bd603a08356f1df4f4ec26bca6c8f496d", size = 27801982, upload-time = "2025-12-18T03:12:25.895Z" },
+    { url = "https://files.pythonhosted.org/packages/af/bb/a4dfe43d55685b1bcea088833790deaa45cbcbd6f2128606c8f1cde1936c/dpctl-0.21.1-0-cp314-cp314-win_amd64.whl", hash = "sha256:0ed87f4abf01b6f343a3eea3a2b59dbf4d64e51ffe813a9da7a1273ffd90ef39", size = 27261756, upload-time = "2025-12-18T03:12:56.802Z" },
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -387,6 +411,50 @@ resolution-markers = [
 sdist = { url = "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730", size = 20503, upload-time = "2025-10-18T21:55:43.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },
+]
+
+[[package]]
+name = "intel-cmplr-lib-rt"
+version = "2025.3.2"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1b/d7/ffb7e58ac260737b5076e2738ce198468a4efb3ba1885bced038801c387a/intel_cmplr_lib_rt-2025.3.2-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:c413efc1b2ddd8a879e9518bcbc375541b8b633951b2825684571d833aea26ad", size = 48084765, upload-time = "2026-01-22T05:31:35.175Z" },
+    { url = "https://files.pythonhosted.org/packages/de/02/46ec0e8aad41a7d95ba62dc65238c88fc302120c9a143c211990eef9c0b2/intel_cmplr_lib_rt-2025.3.2-py2.py3-none-win_amd64.whl", hash = "sha256:89bba5899d0e057f0ecbc55768558e55bd7a3740950d0e4d0b01d25d8b62b020", size = 17741766, upload-time = "2026-01-22T05:34:31.994Z" },
+]
+
+[[package]]
+name = "intel-cmplr-lib-ur"
+version = "2025.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "umf" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/7e/bc668ee301350964b7be980db7d527a54a61b89a749d09bb430b4598ed3b/intel_cmplr_lib_ur-2025.3.2-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:175cdb0fbca5c3ef0db176f1cbd8b8f2c36d33eb774cf1d0cfa0404f748df634", size = 30763527, upload-time = "2026-01-22T05:31:10.942Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/ef/a6de04eb38a359004e9b6d8fd8bbbaedbc5fce1379e16bd26374aade67db/intel_cmplr_lib_ur-2025.3.2-py2.py3-none-win_amd64.whl", hash = "sha256:28dcf7e7401e54f16c4ece55c07029d9ef2b8fe8602b6530f0bcfec906c63823", size = 1253478, upload-time = "2026-01-22T05:34:36.257Z" },
+]
+
+[[package]]
+name = "intel-cmplr-lic-rt"
+version = "2025.3.2"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/27/bbadf924bf134143895fc197701951d9d28c77bd1cfbabd5e1dfb9b90b8b/intel_cmplr_lic_rt-2025.3.2-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:8730fb1dc84740a495603403531b9245ac47d2d3563a853a7b1a0dfe3a81b2bb", size = 18912, upload-time = "2026-01-22T05:31:23.623Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/9f/4d9b6e8d93cc0685323b617023716132c6b65796f4103e167a296973db1f/intel_cmplr_lic_rt-2025.3.2-py2.py3-none-win_amd64.whl", hash = "sha256:b4d79398df82325dbd121ad7239735117e541b768c45ae4ad29fb40b07531d7e", size = 49549, upload-time = "2026-01-22T05:34:34.487Z" },
+]
+
+[[package]]
+name = "intel-sycl-rt"
+version = "2025.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "intel-cmplr-lib-rt" },
+    { name = "intel-cmplr-lib-ur" },
+    { name = "intel-cmplr-lic-rt" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f7/e4/047a0b42f8240a9c70f3ac120479aa1996f99cfe9fd97afb025d6bbd89a8/intel_sycl_rt-2025.3.2-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:3b19d9f64b56804a7bc58a91fe95daacf10bc906b94ce3c5b6416153367df972", size = 113878678, upload-time = "2026-01-22T05:31:00.355Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/ac/82eccd64c17cfac23e265af44400897f1cb30bd5c0830099a39c8425a293/intel_sycl_rt-2025.3.2-py2.py3-none-win_amd64.whl", hash = "sha256:c3a38e2ec1f15417c77f67ece1e8ebb0aef81ffab946e0bf8b1aaa2052e700bb", size = 49654161, upload-time = "2026-01-22T05:34:46.724Z" },
 ]
 
 [[package]]
@@ -1050,8 +1118,19 @@ dependencies = [
     { name = "numpy", version = "2.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pillow", version = "11.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pillow", version = "12.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+
+[package.optional-dependencies]
+cuda = [
     { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+hip = [
+    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+sycl = [
+    { name = "dpctl" },
 ]
 
 [package.dev-dependencies]
@@ -1067,10 +1146,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "dpctl", marker = "extra == 'sycl'" },
     { name = "numpy", specifier = ">=1.12.0" },
     { name = "pillow" },
-    { name = "torch" },
+    { name = "torch", marker = "extra == 'cuda'" },
+    { name = "torch", marker = "extra == 'hip'" },
 ]
+provides-extras = ["cuda", "hip", "sycl"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1454,6 +1536,15 @@ wheels = [
 ]
 
 [[package]]
+name = "tcmlib"
+version = "1.4.1"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/a4/38e8b5a27b66ab286168ba6c449771ed71d71ec76524e7f12401474a5151/tcmlib-1.4.1-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:0d5bd98db48d31bec7fedba5c23599bf9ae43c7016d4c3946d25242d320cee89", size = 2731276, upload-time = "2025-10-22T17:57:02.392Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/4d/2b1d55dba475f602197e284b9a5e5460139a9c5ef2bfb63c8d2a1fafc163/tcmlib-1.4.1-py2.py3-none-win_amd64.whl", hash = "sha256:5202a1fd8541182fbd4ef72848784e4bf94340152d7ddff33d401d30930fa53c", size = 370347, upload-time = "2025-10-22T18:00:36.37Z" },
+]
+
+[[package]]
 name = "tomli"
 version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1686,6 +1777,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac84269196e94cf00f187f7ed21c242792a923cdb1c61f/typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466", size = 109391, upload-time = "2025-08-25T13:49:26.313Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/18/67/36e9267722cc04a6b9f15c7f3441c2363321a3ea07da7ae0c0707beb2a9c/typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548", size = 44614, upload-time = "2025-08-25T13:49:24.86Z" },
+]
+
+[[package]]
+name = "umf"
+version = "1.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tcmlib" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4c/b9/fe8c54eab5a3fdfdff1839d9299d90bfce5c467186b5c9ff9fd95d55ad64/umf-1.0.3-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:c89c0974daed30a1cac77fb7ce5ff9140d178e286bb2dd91b751486d5d0a65b0", size = 359879, upload-time = "2026-01-22T05:32:44.433Z" },
+    { url = "https://files.pythonhosted.org/packages/97/49/23b714e4ca9655f04d5b958ca8b4ef8361e10743581a637f141755b9f4fb/umf-1.0.3-py2.py3-none-win_amd64.whl", hash = "sha256:2182a623433329bd53863ac3b15a4af253d0eda62c603dc7c4e2bdce78658270", size = 249098, upload-time = "2026-01-22T05:33:19.278Z" },
 ]
 
 [[package]]

@@ -128,6 +128,14 @@ Deliverables
 - Add minimal CLI usage if needed, otherwise document script usage.
 - Document how to update the OIDN submodule and rebuild libs.
 
+Status (2026-01-22)
+- [x] Updated README with backend selection, aux image usage, and buffer layout notes.
+- [x] Documented submodule update and build scripts in README.
+- [x] Regenerated `APIs.md` after API changes.
+
+Deliverables
+- Updated docs and example snippets aligned with the new API.
+
 ### 8) Code monitoring
 - Add a pre-commit to the package
 - Add `ruff format` to pre-commit

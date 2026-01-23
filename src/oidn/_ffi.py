@@ -50,7 +50,7 @@ _ERROR_MESSAGES = {
 }
 
 _SHARED_EXTENSIONS = (".so", ".dylib", ".dll")
-_VERSION_RE = re.compile(r"(\\d+\\.\\d+\\.\\d+)")
+_VERSION_RE = re.compile(r"(\d+\.\d+\.\d+)")
 
 
 @dataclass(frozen=True)
