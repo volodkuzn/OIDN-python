@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-
 import oidn
 
 
@@ -32,7 +31,7 @@ class FakeFunctions:
     def oidnReleaseDevice(self, _handle: int) -> None:
         return None
 
-    def oidnGetDeviceError(self, _handle, message_ptr) -> int:  # noqa: ANN001
+    def oidnGetDeviceError(self, _handle, message_ptr) -> int:
         message_ptr.contents.value = b""
         return 0
 
@@ -68,7 +67,7 @@ def test_cpu_denoise_integration(monkeypatch) -> None:
     fake = FakeFunctions()
     monkeypatch.setattr(oidn._ffi, "get_functions", lambda: fake)
 
-    def fake_availability(_backend, *, check_runtime=True):  # noqa: ANN001
+    def fake_availability(_backend, *, check_runtime=True):
         return oidn._backends.BackendAvailability(oidn.Backend.CPU, True)
 
     monkeypatch.setattr(oidn._backends, "backend_availability", fake_availability)

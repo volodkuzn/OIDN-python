@@ -3,10 +3,9 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
-
 
 SUPPORTED_BACKENDS = {"cpu", "cuda", "hip", "sycl", "metal"}
 
@@ -77,13 +76,11 @@ def _check_metal_toolchain() -> None:
         raise RuntimeError("xcrun is missing. Install Xcode Command Line Tools.") from exc
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(
-            "Metal toolchain not found. Run `xcodebuild -downloadComponent MetalToolchain` "
-            "and try again."
+            "Metal toolchain not found. Run `xcodebuild -downloadComponent MetalToolchain` " "and try again."
         ) from exc
     if not result.stdout.strip():
         raise RuntimeError(
-            "Metal toolchain not found. Run `xcodebuild -downloadComponent MetalToolchain` "
-            "and try again."
+            "Metal toolchain not found. Run `xcodebuild -downloadComponent MetalToolchain` " "and try again."
         )
 
 

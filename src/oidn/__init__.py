@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import importlib
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Mapping, Sequence, cast
+from typing import cast
 
 import numpy as np
 from PIL import Image
@@ -234,7 +235,7 @@ class ChannelOrder(str, Enum):
     CHW = "chw"
 
     @classmethod
-    def parse(cls, value: "ChannelOrder | str") -> "ChannelOrder":
+    def parse(cls, value: ChannelOrder | str) -> ChannelOrder:
         if isinstance(value, ChannelOrder):
             return value
         if not isinstance(value, str):
@@ -440,7 +441,7 @@ class Buffer(AutoReleaseByContextManaeger):
         *,
         channel_order: ChannelOrder | str | None = None,
         channel_first: bool = False,
-    ) -> "Buffer":
+    ) -> Buffer:
         """
         Wrap an existing array buffer.
         """
@@ -479,7 +480,7 @@ class Buffer(AutoReleaseByContextManaeger):
         use_cupy: bool = False,
         dtype: object = np.float32,
         channel_order: ChannelOrder | str | None = None,
-    ) -> "Buffer":
+    ) -> Buffer:
         """
         Create a new buffer with allocated storage.
         """
@@ -531,7 +532,7 @@ class Buffer(AutoReleaseByContextManaeger):
         channel_order: ChannelOrder | str | None = None,
         channel_first: bool = False,
         use_cupy: bool = False,
-    ) -> "Buffer":
+    ) -> Buffer:
         """
         Create a buffer from a PIL image, numpy array, or torch tensor.
         """

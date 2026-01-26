@@ -51,19 +51,35 @@ oidn = ["lib.*/*"]
 bdist_wheel = "build_support.BDistWheel"
 
 [tool.ruff]
-line-length = 100
-target-version = "py39"
+target-version = "py310"
+fix = true
+line-length = 120
+extend-exclude = ["oidn_cpp"]
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
+select = ["B", "E", "F", "I", "UP", "SIM", "S", "C4", "LOG", "PTH", "NPY", "RUF"]
+ignore = ["S101", "S311", "S603", "S607"]
+fixable = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.per-file-ignores]
+"generate_doc.py" = ["E402"]
+"src/oidn/__init__.py" = ["F403", "F405"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 files = ["src", "tests"]
 warn_unused_ignores = true
 warn_return_any = true
 no_implicit_optional = true
 strict_optional = true
+
+[[tool.mypy.overrides]]
+module = ["pytest", "_pytest", "_pytest.*"]
+follow_imports = "skip"
 
 [tool.pytest.ini_options]
 minversion = "7.0"
@@ -83,8 +99,10 @@ skip_empty = true
 dev = [
   "build>=1.0",
   "mypy>=1.8",
+  "pre-commit>=3.6",
   "pytest>=7.0",
   "pytest-cov>=4.0",
   "ruff>=0.3",
+  "wheel>=0.41",
   "types-Pillow",
 ]

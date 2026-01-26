@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import pytest
-
 import oidn
 import oidn._backends as backends
+import pytest
 
 
 def _patch_device(

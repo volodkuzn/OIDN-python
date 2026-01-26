@@ -4,9 +4,10 @@ import ctypes
 import platform
 import re
 import sys
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Protocol, Sequence, cast
+from typing import Protocol, cast
 
 DeviceHandle = int
 FilterHandle = int
@@ -223,12 +224,8 @@ def _get_func(
 
 def bind_functions(lib: ctypes.CDLL) -> BoundFunctions:
     return BoundFunctions(
-        oidnNewDevice=cast(
-            NewDeviceFn, _get_func(lib, "oidnNewDevice", (ctypes.c_int,), ctypes.c_void_p)
-        ),
-        oidnCommitDevice=cast(
-            CommitDeviceFn, _get_func(lib, "oidnCommitDevice", (ctypes.c_void_p,), None)
-        ),
+        oidnNewDevice=cast(NewDeviceFn, _get_func(lib, "oidnNewDevice", (ctypes.c_int,), ctypes.c_void_p)),
+        oidnCommitDevice=cast(CommitDeviceFn, _get_func(lib, "oidnCommitDevice", (ctypes.c_void_p,), None)),
         oidnGetDeviceError=cast(
             GetDeviceErrorFn,
             _get_func(
@@ -238,23 +235,15 @@ def bind_functions(lib: ctypes.CDLL) -> BoundFunctions:
                 ctypes.c_int,
             ),
         ),
-        oidnReleaseDevice=cast(
-            ReleaseDeviceFn, _get_func(lib, "oidnReleaseDevice", (ctypes.c_void_p,), None)
-        ),
-        oidnRetainDevice=cast(
-            RetainDeviceFn, _get_func(lib, "oidnRetainDevice", (ctypes.c_void_p,), None)
-        ),
+        oidnReleaseDevice=cast(ReleaseDeviceFn, _get_func(lib, "oidnReleaseDevice", (ctypes.c_void_p,), None)),
+        oidnRetainDevice=cast(RetainDeviceFn, _get_func(lib, "oidnRetainDevice", (ctypes.c_void_p,), None)),
         oidnSetDeviceBool=cast(
             SetDeviceBoolFn,
-            _get_func(
-                lib, "oidnSetDeviceBool", (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_bool), None
-            ),
+            _get_func(lib, "oidnSetDeviceBool", (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_bool), None),
         ),
         oidnSetDeviceInt=cast(
             SetDeviceIntFn,
-            _get_func(
-                lib, "oidnSetDeviceInt", (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int), None
-            ),
+            _get_func(lib, "oidnSetDeviceInt", (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int), None),
         ),
         oidnGetDeviceBool=cast(
             GetDeviceBoolFn,
@@ -314,9 +303,7 @@ def bind_functions(lib: ctypes.CDLL) -> BoundFunctions:
         ),
         oidnGetFilterFloat=cast(
             GetFilterFloatFn,
-            _get_func(
-                lib, "oidnGetFilterFloat", (ctypes.c_void_p, ctypes.c_char_p), ctypes.c_float
-            ),
+            _get_func(lib, "oidnGetFilterFloat", (ctypes.c_void_p, ctypes.c_char_p), ctypes.c_float),
         ),
         oidnGetFilterInt=cast(
             GetFilterIntFn,
@@ -324,34 +311,20 @@ def bind_functions(lib: ctypes.CDLL) -> BoundFunctions:
         ),
         oidnSetFilterBool=cast(
             SetFilterBoolFn,
-            _get_func(
-                lib, "oidnSetFilterBool", (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_bool), None
-            ),
+            _get_func(lib, "oidnSetFilterBool", (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_bool), None),
         ),
         oidnSetFilterFloat=cast(
             SetFilterFloatFn,
-            _get_func(
-                lib, "oidnSetFilterFloat", (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_float), None
-            ),
+            _get_func(lib, "oidnSetFilterFloat", (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_float), None),
         ),
         oidnSetFilterInt=cast(
             SetFilterIntFn,
-            _get_func(
-                lib, "oidnSetFilterInt", (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int), None
-            ),
+            _get_func(lib, "oidnSetFilterInt", (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int), None),
         ),
-        oidnCommitFilter=cast(
-            CommitFilterFn, _get_func(lib, "oidnCommitFilter", (ctypes.c_void_p,), None)
-        ),
-        oidnExecuteFilter=cast(
-            ExecuteFilterFn, _get_func(lib, "oidnExecuteFilter", (ctypes.c_void_p,), None)
-        ),
-        oidnReleaseFilter=cast(
-            ReleaseFilterFn, _get_func(lib, "oidnReleaseFilter", (ctypes.c_void_p,), None)
-        ),
-        oidnRetainFilter=cast(
-            RetainFilterFn, _get_func(lib, "oidnRetainFilter", (ctypes.c_void_p,), None)
-        ),
+        oidnCommitFilter=cast(CommitFilterFn, _get_func(lib, "oidnCommitFilter", (ctypes.c_void_p,), None)),
+        oidnExecuteFilter=cast(ExecuteFilterFn, _get_func(lib, "oidnExecuteFilter", (ctypes.c_void_p,), None)),
+        oidnReleaseFilter=cast(ReleaseFilterFn, _get_func(lib, "oidnReleaseFilter", (ctypes.c_void_p,), None)),
+        oidnRetainFilter=cast(RetainFilterFn, _get_func(lib, "oidnRetainFilter", (ctypes.c_void_p,), None)),
     )
 
 

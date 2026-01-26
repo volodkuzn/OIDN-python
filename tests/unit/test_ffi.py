@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import ctypes
 from pathlib import Path
 from typing import cast
 
-import ctypes
-import pytest
-
 import oidn._ffi as ffi
+import pytest
 
 
 class FakeFunc:

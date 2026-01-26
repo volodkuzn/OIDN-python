@@ -1,12 +1,35 @@
 from __future__ import annotations
 
 import ctypes
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 
 from oidn import _ffi
-from oidn.constants import *
+from oidn.constants import (  # noqa: F401 - re-exported constants for public API
+    DEVICE_TYPE_CPU,
+    DEVICE_TYPE_CUDA,
+    DEVICE_TYPE_DEFAULT,
+    DEVICE_TYPE_HIP,
+    DEVICE_TYPE_METAL,
+    DEVICE_TYPE_SYCL,
+    ERROR_CANCELLED,
+    ERROR_INVALID_ARGUMENT,
+    ERROR_INVALID_OPERATION,
+    ERROR_NONE,
+    ERROR_OUT_OF_MEMORY,
+    ERROR_UNKNOWN,
+    ERROR_UNSUPPORTED_HARDWARE,
+    FORMAT_FLOAT,
+    FORMAT_FLOAT2,
+    FORMAT_FLOAT3,
+    FORMAT_FLOAT4,
+    FORMAT_HALF,
+    FORMAT_HALF2,
+    FORMAT_HALF3,
+    FORMAT_HALF4,
+    FORMAT_UNDEFINED,
+)
 
 
 class _RawFunctionsProxy:

@@ -6,7 +6,6 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-
 SHARED_EXTENSIONS = (".so", ".dylib", ".dll")
 
 
@@ -46,11 +45,11 @@ def _collect_libs(root: Path) -> list[Path]:
     for path in root.rglob("*"):
         if not path.is_file():
             continue
-        if path.suffix in SHARED_EXTENSIONS or any(
-            path.name.endswith(ext) for ext in SHARED_EXTENSIONS
+        if (
+            path.suffix in SHARED_EXTENSIONS
+            or any(path.name.endswith(ext) for ext in SHARED_EXTENSIONS)
+            or ".so." in path.name
         ):
-            matches.append(path)
-        elif ".so." in path.name:
             matches.append(path)
     return matches
 

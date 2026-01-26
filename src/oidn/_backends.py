@@ -3,10 +3,10 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Mapping
 
 from oidn import _ffi
 from oidn.constants import (
@@ -89,20 +89,14 @@ def device_type_for_backend(backend: Backend | str) -> int:
 
 
 def available_backends(*, check_runtime: bool = True) -> list[Backend]:
-    return [
-        backend
-        for backend in _BACKEND_ORDER
-        if is_backend_available(backend, check_runtime=check_runtime)
-    ]
+    return [backend for backend in _BACKEND_ORDER if is_backend_available(backend, check_runtime=check_runtime)]
 
 
 def is_backend_available(backend: Backend | str, *, check_runtime: bool = True) -> bool:
     return backend_availability(backend, check_runtime=check_runtime).available
 
 
-def backend_availability(
-    backend: Backend | str, *, check_runtime: bool = True
-) -> BackendAvailability:
+def backend_availability(backend: Backend | str, *, check_runtime: bool = True) -> BackendAvailability:
     resolved = Backend.parse(backend)
     if resolved is Backend.AUTO:
         for candidate in _BACKEND_ORDER:
@@ -201,7 +195,7 @@ def _torch_runtime_status() -> tuple[bool, str | None, bool]:
     except ModuleNotFoundError:
         return False, "CUDA/HIP backends require torch to be installed.", False
 
-    is_available = getattr(torch, "cuda").is_available()
+    is_available = torch.cuda.is_available()
     if not is_available:
         return False, "torch.cuda.is_available() is False.", False
 

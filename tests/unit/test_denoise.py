@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import cast
 
 import numpy as np
-
 import oidn
 
 
@@ -25,7 +24,7 @@ class FakeFilter:
         self.executed = False
         self.released = False
 
-    def __enter__(self) -> "FakeFilter":
+    def __enter__(self) -> FakeFilter:
         return self
 
     def __exit__(self, _1, _2, _3) -> None:
@@ -71,7 +70,7 @@ def test_denoise_with_existing_device(monkeypatch) -> None:
 def test_denoise_creates_device(monkeypatch) -> None:
     created: list[DummyDevice] = []
 
-    def fake_device(*, backend=None, options=None):  # noqa: ANN001
+    def fake_device(*, backend=None, options=None):
         device = DummyDevice(oidn.Backend.parse(backend or "cpu"))
         created.append(device)
         return cast(oidn.Device, device)

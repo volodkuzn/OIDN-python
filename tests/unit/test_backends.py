@@ -1,15 +1,13 @@
 from __future__ import annotations
 
+import importlib
+import sys
 from pathlib import Path
 from typing import cast
 
-import importlib
-import sys
-
-import pytest
-
 import oidn._backends as backends
 import oidn._ffi as ffi
+import pytest
 from oidn.constants import (
     DEVICE_TYPE_CPU,
     DEVICE_TYPE_CUDA,

@@ -145,8 +145,16 @@ Deliverables
 - Correct all ruff and mypy (if added) errors
 - Add Github CI
 
+Status (2026-01-22)
+- [x] Added `.pre-commit-config.yaml` with `ruff` and `ruff-format` hooks.
+- [x] Configured `ruff` hook to run with `--fix` and `--exit-non-zero-on-fix`.
+- [x] Disabled `F403/F405` for `src/oidn/__init__.py` to allow star imports.
+- [ ] Ran `uv run mypy src tests` (blocked by uv panicking in `system-configuration` on this host).
+- [x] Added GitHub Actions CI to run ruff format/check, mypy, and pytest via uv.
+
 Deliverables
-- Updated docs and example snippets aligned with the new API.
+- `.pre-commit-config.yaml` and ruff/mypy defaults in `pyproject.toml`.
+- GitHub Actions CI workflow enforcing lint, typing, and tests.
 
 ## Acceptance criteria
 - Package builds from pyproject and passes ruff, mypy, and pytest with 100% coverage.

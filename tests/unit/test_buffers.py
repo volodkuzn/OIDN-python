@@ -4,9 +4,8 @@ from types import SimpleNamespace
 from typing import cast
 
 import numpy as np
-import pytest
-
 import oidn
+import pytest
 
 
 class DummyDevice:
@@ -21,19 +20,19 @@ class FakeTorchTensor:
         self.dtype = dtype
         self.is_cuda = is_cuda
 
-    def detach(self) -> "FakeTorchTensor":
+    def detach(self) -> FakeTorchTensor:
         return self
 
-    def cpu(self) -> "FakeTorchTensor":
+    def cpu(self) -> FakeTorchTensor:
         return self
 
     def numpy(self) -> np.ndarray:
         return np.zeros(self.__cuda_array_interface__["shape"], dtype=np.float32)
 
-    def float(self) -> "FakeTorchTensor":
+    def float(self) -> FakeTorchTensor:
         return self
 
-    def __truediv__(self, _value: float) -> "FakeTorchTensor":
+    def __truediv__(self, _value: float) -> FakeTorchTensor:
         return self
 
 
@@ -48,28 +47,28 @@ class FakeTorchModule:
         self.cuda = SimpleNamespace(is_available=lambda: cuda_available)
         self.version = SimpleNamespace(hip="1.0" if hip_available else None)
 
-    def zeros(self, shape, *, dtype=None, device=None):  # noqa: ANN001
+    def zeros(self, shape, *, dtype=None, device=None):
         interface = make_interface(shape, np.float32)
         return FakeTorchTensor(interface, dtype, is_cuda=True)
 
-    def tensor(self, data, *, device=None, dtype=None):  # noqa: ANN001
+    def tensor(self, data, *, device=None, dtype=None):
         interface = make_interface(getattr(data, "shape", (1,)), np.float32)
         return FakeTorchTensor(interface, dtype, is_cuda=True)
 
 
 class FakeCupyModule:
-    def zeros(self, shape, dtype=None):  # noqa: ANN001
+    def zeros(self, shape, dtype=None):
         return FakeCudaArray(make_interface(shape, dtype or np.float32))
 
-    def asarray(self, array, dtype=None):  # noqa: ANN001
+    def asarray(self, array, dtype=None):
         return FakeCudaArray(make_interface(array.shape, dtype or array.dtype))
 
 
 class FakeDpctlTensorModule:
-    def zeros(self, shape, dtype=None):  # noqa: ANN001
+    def zeros(self, shape, dtype=None):
         return FakeSyclArray(make_interface(shape, dtype or np.float32))
 
-    def asarray(self, array, dtype=None):  # noqa: ANN001
+    def asarray(self, array, dtype=None):
         return FakeSyclArray(make_interface(array.shape, dtype or array.dtype))
 
 
@@ -88,7 +87,7 @@ class FakeSyclArray:
         self.__sycl_usm_array_interface__ = interface
 
 
-def make_interface(shape, dtype, *, ptr=123, strides=None):  # noqa: ANN001
+def make_interface(shape, dtype, *, ptr=123, strides=None):
     np_dtype = np.dtype(dtype)
     if strides is None:
         strides = oidn._expected_strides(tuple(shape), np_dtype.itemsize)

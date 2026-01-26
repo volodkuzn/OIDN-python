@@ -1,12 +1,13 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
-import oidn
 import inspect
 import re
+
+import oidn
 
 with open("APIs.md", "w") as f:
     f.write("# C APIs\n")
@@ -57,9 +58,7 @@ with open("APIs.md", "w") as f:
         f.write(f"### {name}{inspect.signature(obj)}:\n```\n{obj.__doc__.strip()}\n```\n")
 
     f.write("## Class RawFunction\n")
-    f.write(
-        "These functions are FFI objects for corresponding native functions in the OIDN dynamic linked library.\n"
-    )
+    f.write("These functions are FFI objects for corresponding native functions in the OIDN dynamic linked library.\n")
     for name, obj in inspect.getmembers(oidn.RawFunctions):
         if name.startswith("oidn"):
             f.write(f"### {name}\n")
