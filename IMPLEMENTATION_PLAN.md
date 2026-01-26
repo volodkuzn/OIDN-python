@@ -117,7 +117,7 @@ Status (2026-01-22)
 - [x] Added unit tests for device selection, backend checks, and buffer validation.
 - [x] Added integration test for CPU denoise with auxiliary images.
 - [x] Added mocked GPU/SYCL array-interface tests for pointer/stride handling.
-- [ ] Run full coverage and close remaining gaps (if any).
+- [x] Run full coverage and close remaining gaps (if any).
 
 Deliverables
 - `tests/unit` and `tests/integration` covering all public APIs and key branches.
@@ -155,6 +155,36 @@ Status (2026-01-22)
 Deliverables
 - `.pre-commit-config.yaml` and ruff/mypy defaults in `pyproject.toml`.
 - GitHub Actions CI workflow enforcing lint, typing, and tests.
+
+### 9) Mypy and typing hardening plan
+- Target mypy configuration:
+  - Keep `python_version` aligned with the minimum supported runtime (bump to 3.10+ everywhere).
+  - Enable strict-ish gates for production code: `disallow_untyped_defs`, `check_untyped_defs`,
+    `disallow_any_generics`, `warn_unused_ignores`, `warn_return_any`, `warn_redundant_casts`,
+    `warn_unreachable`, `no_implicit_optional`, `strict_optional`, `strict_equality`.
+  - Add module overrides only for third-party tooling (`pytest`, `_pytest`) and optional deps
+    (`torch`, `dpctl`) when they are not installed.
+- Typing boundaries / ignore points for C/C++ interop:
+  - `src/oidn/_ffi.py`: dynamic `ctypes.CDLL` attribute access and function pointer signatures.
+    Use runtime checks + `cast`; allow local `# type: ignore[<code>]` only where ctypes cannot
+    express types.
+  - `src/oidn/capi.py`: `RawFunctions.oidn*` attribute access to ctypes-bound functions.
+    Prefer a typed Protocol or `BoundFunctions`; otherwise use targeted `# type: ignore[attr-defined]`.
+  - `src/oidn/__init__.py`: array-interface dictionaries (`__array_interface__`,
+    `__cuda_array_interface__`, `__hip_array_interface__`, `__sycl_usm_array_interface__`).
+    Use runtime validation and `Mapping[str, object]` casts to avoid leaking `Any`.
+  - `src/oidn/_backends.py`: dynamic `torch` attribute access (e.g., `torch.cuda`, `torch.version.hip`).
+    Keep behind runtime checks and narrow casts/Protocols.
+- Roadblocks:
+  - Optional deps not installed in CI/dev environments (torch/dpctl) can trigger import errors.
+  - `ctypes` dynamic attributes are difficult to type without casts/Protocols.
+  - Array-interface dicts are untyped; requires explicit validation and casting.
+  - Python version mismatch if `|` unions are used while `requires-python` stays at 3.9.
+- Deliverables:
+  - Mypy configuration updated in `pyproject.toml` with explicit overrides and strict gates.
+  - Typed Protocols or .pyi helpers for optional deps and ctypes functions.
+  - Local, code-commented `# type: ignore[<code>]` only in boundary modules.
+  - Clean `uv run mypy src tests` in CI with documented exceptions.
 
 ## Acceptance criteria
 - Package builds from pyproject and passes ruff, mypy, and pytest with 100% coverage.

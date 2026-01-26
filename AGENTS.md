@@ -17,7 +17,7 @@ Everything in this file is written for “agents” (humans or AI) doing changes
 ## Hard requirements (do not violate)
 
 1. **pyproject.toml-based** repository (no setup.py legacy flow).
-2. **All code typed.** Untyped code is allowed *only* at boundaries with untyped third-party libs (and must be isolated).
+2. **All code typed.** Untyped code is allowed *only* at boundaries with untyped third-party libs.
 3. **Type checking:** `mypy` (treat as a gate).
 4. **Style/lint/format:** `ruff` (treat as a gate).
 5. **Dependencies:** managed with **uv** (lock + sync; do not hand-edit venvs).
@@ -142,14 +142,14 @@ uv run ruff format .
 
 Defaults:
   - Prefer small, typed, mostly-pure functions.
-  - Avoid Any. If Any comes from an untyped dependency, contain it in _boundaries/ and convert to typed models.
+  - Avoid Any. If Any comes from an untyped dependency, convert to concrete type after checks.
   - Prefer dataclass(slots=True, frozen=True) (or similar) for stable domain models.
   - Do not use dataclasses with a single field and no methods; use the underlying type or a type alias instead (do not add methods just to bypass this rule).
   - Prefer dataclasses over dicts when passing objects between functions
   - Prefer PyTorch for tensor manipulation and data processing; avoid hand-written implementations when library primitives exist, and document any necessary hand-rolled operations.
   - Prefer Protocol for pluggable components.
   - Prefer numpy.typing and/or typing_extensions where appropriate.
-  - For _boundaries with untyped libraries: check return types at runtime before casting, cast to concrete types (no cast to Any), and use local # type: ignore[<code>] only when a concrete type cannot be expressed.
+  - For with untyped libraries: check return types at runtime before casting, cast to concrete types (no cast to Any), and use local # type: ignore[<code>] only when a concrete type cannot be expressed.
   - Document shape of the arrays
   - Add typings for all bindings
 
