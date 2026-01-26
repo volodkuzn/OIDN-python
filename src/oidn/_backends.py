@@ -149,10 +149,7 @@ def apply_device_options(device_handle: int, options: DeviceOptions) -> None:
 
 def _device_library_present(lib_dir: Path, backend: Backend) -> bool:
     token = _DEVICE_LIBRARY_TOKEN[backend]
-    for path in _iter_shared_libraries(lib_dir):
-        if token in path.name.lower():
-            return True
-    return False
+    return any(token in path.name.lower() for path in _iter_shared_libraries(lib_dir))
 
 
 def _iter_shared_libraries(lib_dir: Path) -> list[Path]:

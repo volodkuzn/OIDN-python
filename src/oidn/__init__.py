@@ -81,9 +81,8 @@ class Device(AutoReleaseByContextManaeger):
         Raise a RuntimeError if an error occured.
         """
         err = self.error
-        if err is not None:
-            if err[0] != 0:
-                raise RuntimeError(err[1])
+        if err is not None and err[0] != 0:
+            raise RuntimeError(err[1])
 
     def release(self):
         """
@@ -257,18 +256,18 @@ class _ArraySpec:
 
 
 def _tuple_of_ints(value: object, *, name: str) -> tuple[int, ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
         raise TypeError(f"{name} must be a sequence of integers.")
     items: list[int] = []
     for item in value:
-        if not isinstance(item, (int, np.integer)):
+        if not isinstance(item, int | np.integer):
             raise TypeError(f"{name} must contain integers.")
         items.append(int(item))
     return tuple(items)
 
 
 def _parse_pointer(data: object) -> tuple[int, bool]:
-    if isinstance(data, (tuple, list)) and len(data) == 2:
+    if isinstance(data, tuple | list) and len(data) == 2:
         ptr, read_only = data
     elif isinstance(data, Mapping):
         if "ptr" in data:
@@ -278,7 +277,7 @@ def _parse_pointer(data: object) -> tuple[int, bool]:
             raise TypeError("Array interface data mapping must include 'ptr'.")
     else:
         raise TypeError("Array interface data must be a tuple or mapping.")
-    if not isinstance(ptr, (int, np.integer)):
+    if not isinstance(ptr, int | np.integer):
         raise TypeError("Array interface pointer must be an integer.")
     return int(ptr), bool(read_only)
 
@@ -375,10 +374,7 @@ def _array_interface_for_backend(device: Device, array: object) -> Mapping[str, 
     elif backend is Backend.CUDA:
         attr = "__cuda_array_interface__"
     elif backend is Backend.HIP:
-        if hasattr(array, "__hip_array_interface__"):
-            attr = "__hip_array_interface__"
-        else:
-            attr = "__cuda_array_interface__"
+        attr = "__hip_array_interface__" if hasattr(array, "__hip_array_interface__") else "__cuda_array_interface__"
     elif backend is Backend.SYCL:
         attr = "__sycl_usm_array_interface__"
     else:

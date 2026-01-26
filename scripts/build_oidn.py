@@ -68,8 +68,7 @@ def _check_metal_toolchain() -> None:
         result = subprocess.run(
             ["xcrun", "--sdk", "macosx", "--find", "metal"],
             check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
         )
     except FileNotFoundError as exc:

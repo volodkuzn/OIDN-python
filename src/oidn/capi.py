@@ -98,7 +98,8 @@ def RetainDevice(device_handle: int):
 def SetDeviceBool(device_handle: int, name: str, value: bool):
     r"""
     These parameters can be set by SetDeviceBool:
-        setAffinity (default=True): enables thread affinitization (pinning software threads to hardware threads) if it is necessary for achieving optimal performance
+        setAffinity (default=True): enables thread affinitization (pinning software threads to
+            hardware threads) if it is necessary for achieving optimal performance
     Args:
         device_handle : Get from NewDevice
         name : parameter name
@@ -117,8 +118,10 @@ def SetDevice1b(device_handle: int, name: str, value: bool):
 def SetDeviceInt(device_handle: int, name: str, value: int):
     r"""
     These parameters can be set by SetDevice1b:
-        verbose : 0 verbosity level of the console output between 0-4; when set to 0, no output is printed, when set to a higher level more output is printed
-        numThreads (default = 0) : maximum number of threads which the library should use; 0 will set it automatically to get the best performance
+        verbose : 0 verbosity level of the console output between 0-4; when set to 0, no output
+            is printed, when set to a higher level more output is printed
+        numThreads (default = 0) : maximum number of threads which the library should use; 0
+            will set it automatically to get the best performance
     Args:
         device_handle : Get from NewDevice
         name : parameter name
@@ -141,7 +144,8 @@ def GetDeviceInt(device_handle: int, name: str) -> int:
         versionMajor : major version number
         versionMinor : minor version number
         versionPatch : patch version number
-        verbose : 0 verbosity level of the console output between 0-4; when set to 0, no output is printed, when set to a higher level more output is printed
+        verbose : 0 verbosity level of the console output between 0-4; when set to 0, no output
+            is printed, when set to a higher level more output is printed
     Args:
         device_handle : Get from NewDevice
         name : parameter name
@@ -159,7 +163,8 @@ def GetDevice1i(device_handle: int, name: str) -> int:
 def GetDeviceBool(device_handle: int, name: str) -> bool:
     r"""
     These parameters can be get by GetDeviceBool:
-        setAffinity (default = True): enables thread affinitization (pinning software threads to hardware threads) if it is necessary for achieving optimal performance
+        setAffinity (default = True): enables thread affinitization (pinning software threads to
+            hardware threads) if it is necessary for achieving optimal performance
     Args:
         device_handle : Get from NewDevice
         name : parameter name
@@ -198,9 +203,14 @@ def SetSharedFilterImage(
 ):
     r"""
     Set filter image, the parameter name cound be:
-        color : input beauty image (3 channels, LDR values in [0, 1] or HDR values in [0, +∞), values being interpreted such that, after scaling with the inputScale parameter, a value of 1 corresponds to a luminance level of 100 cd/m²)
-        albedo(only support RT filter) : input auxiliary image containing the albedo per pixel (3 channels, values in [0, 1])
-        normal(only support RT filter) : input auxiliary image containing the shading normal per pixel (3 channels, world-space or view-space vectors with arbitrary length, values in [-1, 1])
+        color : input beauty image (3 channels, LDR values in [0, 1] or HDR values in [0, +∞),
+            values being interpreted such that, after scaling with the inputScale parameter, a
+            value of 1 corresponds to a luminance level of 100 cd/m²)
+        albedo(only support RT filter) : input auxiliary image containing the albedo per pixel
+            (3 channels, values in [0, 1])
+        normal(only support RT filter) : input auxiliary image containing the shading normal per
+            pixel (3 channels, world-space or view-space vectors with arbitrary length, values
+            in [-1, 1])
         output : output image (3 channels); can be one of the input images
     Args:
         filter_handle(int): Created by NewFilter
@@ -251,7 +261,8 @@ def SetSharedFilterImageEx(
     byteRowStride: int = 0,
 ):
     r"""
-    Used internelly. 'data' parameter could be any buffer type, requring get_shape, check_c_contiguous, get_array_interface.
+    Used internelly. 'data' parameter could be any buffer type, requring get_shape,
+    check_c_contiguous, get_array_interface.
     """
     desired_dim3 = [0, 1, 2, 3, 4]
     desired_data_shape = (height, width, desired_dim3[format])
@@ -347,8 +358,12 @@ def RemoveFilterData(filter_handle: int, name: str):
 def GetFilterInt(filter_handle: int, name: str) -> int:
     r"""
     Get filter parameter (type int), the name could be:
-        maxMemoryMB (default=3000) : approximate maximum scratch memory to use in megabytes (actual memory usage may be higher); limiting memory usage may cause slower denoising due to internally splitting the image into overlapping tiles
-        alignment : when manually denoising in tiles, the tile size and offsets should be multiples of this amount of pixels to avoid artifacts; when denoising HDR images inputScale must be set by the user to avoid seam artifacts
+        maxMemoryMB (default=3000) : approximate maximum scratch memory to use in megabytes
+            (actual memory usage may be higher); limiting memory usage may cause slower
+            denoising due to internally splitting the image into overlapping tiles
+        alignment : when manually denoising in tiles, the tile size and offsets should be
+            multiples of this amount of pixels to avoid artifacts; when denoising HDR images
+            inputScale must be set by the user to avoid seam artifacts
         overlap : when manually denoising in tiles, the tiles should overlap by this amount of pixels
     Args:
         filter_handle : Get from NewFilter
@@ -368,9 +383,17 @@ def GetFilterBool(filter_handle: int, name: str) -> bool:
     r"""
     Get filter parameter (type bool), the name could be:
         hdr (default = False, only support RT) : whether the main input image is HDR
-        srgb (default = False, only support RT) : whether the main input image is encoded with the sRGB (or 2.2 gamma) curve (LDR only) or is linear; the output will be encoded with the same curve
-        cleanAux (default = False, only support RT) : whether the auxiliary feature (albedo, normal) images are noise-free; recommended for highest quality but should not be enabled for noisy auxiliary images to avoid residual noise
-        directional (default = False, only support RTLightmap) : whether the input contains normalized coefficients (in [-1, 1]) of a directional lightmap (e.g. normalized L1 or higher spherical harmonics band with the L0 band divided out); if the range of the coefficients is different from [-1, 1], the inputScale parameter can be used to adjust the range without changing the stored values
+        srgb (default = False, only support RT) : whether the main input image is encoded with
+            the sRGB (or 2.2 gamma) curve (LDR only) or is linear; the output will be encoded
+            with the same curve
+        cleanAux (default = False, only support RT) : whether the auxiliary feature (albedo,
+            normal) images are noise-free; recommended for highest quality but should not be
+            enabled for noisy auxiliary images to avoid residual noise
+        directional (default = False, only support RTLightmap) : whether the input contains
+            normalized coefficients (in [-1, 1]) of a directional lightmap (e.g. normalized L1
+            or higher spherical harmonics band with the L0 band divided out); if the range of
+            the coefficients is different from [-1, 1], the inputScale parameter can be used to
+            adjust the range without changing the stored values
     Args:
         filter_handle : Get from NewFilter
         name : name of the parameter
@@ -388,7 +411,11 @@ def GetFilter1b(filter_handle: int, name: str) -> bool:
 def GetFilterFloat(filter_handle: int, name: str) -> float:
     r"""
     Get filter parameter (type float), the name could be:
-        inputScale (default=nan) : scales values in the main input image before filtering, without scaling the output too, which can be used to map color or auxiliary feature values to the expected range, e.g. for mapping HDR values to physical units (which affects the quality of the output but not the range of the output values); if set to NaN, the scale is computed implicitly for HDR images or set to 1 otherwise
+        inputScale (default=nan) : scales values in the main input image before filtering,
+            without scaling the output too, which can be used to map color or auxiliary feature
+            values to the expected range, e.g. for mapping HDR values to physical units (which
+            affects the quality of the output but not the range of the output values); if set to
+            NaN, the scale is computed implicitly for HDR images or set to 1 otherwise
     Args:
         filter_handle : Get from NewFilter
         name : name of the parameter
@@ -407,9 +434,17 @@ def SetFilterBool(filter_handle: int, name: str, value: bool):
     r"""
     Get filter parameter (type bool), the name could be:
         hdr (default = False, only support RT) : whether the main input image is HDR
-        srgb (default = False, only support RT) : whether the main input image is encoded with the sRGB (or 2.2 gamma) curve (LDR only) or is linear; the output will be encoded with the same curve
-        cleanAux (default = False, only support RT) : whether the auxiliary feature (albedo, normal) images are noise-free; recommended for highest quality but should not be enabled for noisy auxiliary images to avoid residual noise
-        directional (default = False, only support RTLightmap) : whether the input contains normalized coefficients (in [-1, 1]) of a directional lightmap (e.g. normalized L1 or higher spherical harmonics band with the L0 band divided out); if the range of the coefficients is different from [-1, 1], the inputScale parameter can be used to adjust the range without changing the stored values
+        srgb (default = False, only support RT) : whether the main input image is encoded with
+            the sRGB (or 2.2 gamma) curve (LDR only) or is linear; the output will be encoded
+            with the same curve
+        cleanAux (default = False, only support RT) : whether the auxiliary feature (albedo,
+            normal) images are noise-free; recommended for highest quality but should not be
+            enabled for noisy auxiliary images to avoid residual noise
+        directional (default = False, only support RTLightmap) : whether the input contains
+            normalized coefficients (in [-1, 1]) of a directional lightmap (e.g. normalized L1
+            or higher spherical harmonics band with the L0 band divided out); if the range of
+            the coefficients is different from [-1, 1], the inputScale parameter can be used to
+            adjust the range without changing the stored values
     Args:
         filter_handle : Get from NewFilter
         name : name of the parameter
@@ -428,8 +463,12 @@ def SetFilter1b(filter_handle: int, name: str, value: bool):
 def SetFilterInt(filter_handle: int, name: str, value: int):
     r"""
     Get filter parameter (type int), the name could be:
-        maxMemoryMB (default=3000) : approximate maximum scratch memory to use in megabytes (actual memory usage may be higher); limiting memory usage may cause slower denoising due to internally splitting the image into overlapping tiles
-        alignment : when manually denoising in tiles, the tile size and offsets should be multiples of this amount of pixels to avoid artifacts; when denoising HDR images inputScale must be set by the user to avoid seam artifacts
+        maxMemoryMB (default=3000) : approximate maximum scratch memory to use in megabytes
+            (actual memory usage may be higher); limiting memory usage may cause slower
+            denoising due to internally splitting the image into overlapping tiles
+        alignment : when manually denoising in tiles, the tile size and offsets should be
+            multiples of this amount of pixels to avoid artifacts; when denoising HDR images
+            inputScale must be set by the user to avoid seam artifacts
         overlap : when manually denoising in tiles, the tiles should overlap by this amount of pixels
     Args:
         filter_handle : Get from NewFilter
@@ -449,7 +488,11 @@ def SetFilter1i(filter_handle: int, name: str, value: int):
 def SetFilterFloat(filter_handle: int, name: str, value: float):
     r"""
     Get filter parameter (type float), the name could be:
-        inputScale (default=nan) : scales values in the main input image before filtering, without scaling the output too, which can be used to map color or auxiliary feature values to the expected range, e.g. for mapping HDR values to physical units (which affects the quality of the output but not the range of the output values); if set to NaN, the scale is computed implicitly for HDR images or set to 1 otherwise
+        inputScale (default=nan) : scales values in the main input image before filtering,
+            without scaling the output too, which can be used to map color or auxiliary feature
+            values to the expected range, e.g. for mapping HDR values to physical units (which
+            affects the quality of the output but not the range of the output values); if set to
+            NaN, the scale is computed implicitly for HDR images or set to 1 otherwise
     Args:
         filter_handle : Get from NewFilter
         name : name of the parameter

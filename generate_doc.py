@@ -9,7 +9,9 @@ import re
 
 import oidn
 
-with open("APIs.md", "w") as f:
+output_path = ROOT / "APIs.md"
+
+with output_path.open("w", encoding="utf-8") as f:
     f.write("# C APIs\n")
 
     f.write("## Free functions:\n")
@@ -59,7 +61,7 @@ with open("APIs.md", "w") as f:
 
     f.write("## Class RawFunction\n")
     f.write("These functions are FFI objects for corresponding native functions in the OIDN dynamic linked library.\n")
-    for name, obj in inspect.getmembers(oidn.RawFunctions):
+    for name, _obj in inspect.getmembers(oidn.RawFunctions):
         if name.startswith("oidn"):
             f.write(f"### {name}\n")
 
@@ -78,10 +80,16 @@ with open("APIs.md", "w") as f:
                 doc = "(No document)"
             doc = doc.strip()
             if inspect.isroutine(method_obj):
-                f.write(
-                    f'### {method_name}{inspect.signature(method_obj)}: <div style="text-align: right; float: right; color: #215f11">method</div> \n```\n{doc}\n```\n'
+                method_header = (
+                    f"### {method_name}{inspect.signature(method_obj)}: "
+                    '<div style="text-align: right; float: right; color: #215f11">method</div>\n'
+                    f"```\n{doc}\n```\n"
                 )
+                f.write(method_header)
             elif isinstance(method_obj, property):
-                f.write(
-                    f'### {method_name} <div style="text-align: right; float: right; color: #21138d">property</div>  \n```\n{doc}\n```\n'
+                property_header = (
+                    f"### {method_name} "
+                    '<div style="text-align: right; float: right; color: #21138d">property</div>\n'
+                    f"```\n{doc}\n```\n"
                 )
+                f.write(property_header)
