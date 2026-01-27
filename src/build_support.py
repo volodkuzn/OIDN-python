@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# wheel lacks type hints
 from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
 
 

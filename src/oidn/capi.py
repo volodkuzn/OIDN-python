@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import ctypes
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from typing import cast
 
 import numpy as np
 
@@ -42,7 +43,7 @@ class _RawFunctionsProxy:
         return sorted(set(names + list(object.__dir__(self))))
 
 
-RawFunctions = _RawFunctionsProxy()
+RawFunctions = cast(_ffi.BoundFunctions, _RawFunctionsProxy())
 
 
 def __init_by_lib(lib: ctypes.CDLL) -> None:
@@ -59,7 +60,7 @@ def NewDevice(device_type: int = DEVICE_TYPE_DEFAULT) -> int:
     return _ffi.handle_from_ptr(RawFunctions.oidnNewDevice(device_type))
 
 
-def CommitDevice(device_handle: int):
+def CommitDevice(device_handle: int) -> None:
     """
     Batch up multiple changes on the device.
 
@@ -79,7 +80,7 @@ def GetDeviceError(device_handle: int) -> tuple[int, str]:
     return _ffi.get_device_error(device_handle)
 
 
-def ReleaseDevice(device_handle: int):
+def ReleaseDevice(device_handle: int) -> None:
     r"""
     Args:
         device_handle : Get from NewDevice
@@ -87,7 +88,7 @@ def ReleaseDevice(device_handle: int):
     RawFunctions.oidnReleaseDevice(device_handle)
 
 
-def RetainDevice(device_handle: int):
+def RetainDevice(device_handle: int) -> None:
     r"""
     Args:
         device_handle : Get from NewDevice
@@ -95,7 +96,7 @@ def RetainDevice(device_handle: int):
     RawFunctions.oidnRetainDevice(device_handle)
 
 
-def SetDeviceBool(device_handle: int, name: str, value: bool):
+def SetDeviceBool(device_handle: int, name: str, value: bool) -> None:
     r"""
     These parameters can be set by SetDeviceBool:
         setAffinity (default=True): enables thread affinitization (pinning software threads to
@@ -108,14 +109,14 @@ def SetDeviceBool(device_handle: int, name: str, value: bool):
     RawFunctions.oidnSetDeviceBool(device_handle, bytes(name, "ascii"), value)
 
 
-def SetDevice1b(device_handle: int, name: str, value: bool):
+def SetDevice1b(device_handle: int, name: str, value: bool) -> None:
     r"""
     Alias for SetDeviceBool
     """
-    SetDeviceBool(device_handle, name, str)
+    SetDeviceBool(device_handle, name, value)
 
 
-def SetDeviceInt(device_handle: int, name: str, value: int):
+def SetDeviceInt(device_handle: int, name: str, value: int) -> None:
     r"""
     These parameters can be set by SetDevice1b:
         verbose : 0 verbosity level of the console output between 0-4; when set to 0, no output
@@ -130,7 +131,7 @@ def SetDeviceInt(device_handle: int, name: str, value: int):
     RawFunctions.oidnSetDeviceInt(device_handle, bytes(name, "ascii"), value)
 
 
-def SetDevice1i(device_handle: int, name: str, value: int):
+def SetDevice1i(device_handle: int, name: str, value: int) -> None:
     r"""
     Alias for SetDeviceInt
     """
@@ -200,7 +201,7 @@ def SetSharedFilterImage(
     byteOffset: int = 0,
     bytePixelStride: int = 0,
     byteRowStride: int = 0,
-):
+) -> None:
     r"""
     Set filter image, the parameter name cound be:
         color : input beauty image (3 channels, LDR values in [0, 1] or HDR values in [0, +∞),
@@ -250,16 +251,16 @@ def SetSharedFilterImageEx(
     filter_handle: int,
     name: str,
     data: object,
-    get_shape: Callable,
-    check_c_contiguous: Callable,
-    get_array_interface: Callable,
+    get_shape: Callable[[object], tuple[int, ...]],
+    check_c_contiguous: Callable[[object], bool],
+    get_array_interface: Callable[[object], Mapping[str, object]],
     format: int,
     width: int,
     height: int,
     byteOffset: int = 0,
     bytePixelStride: int = 0,
     byteRowStride: int = 0,
-):
+) -> None:
     r"""
     Used internelly. 'data' parameter could be any buffer type, requring get_shape,
     check_c_contiguous, get_array_interface.
@@ -277,10 +278,18 @@ def SetSharedFilterImageEx(
         raise RuntimeError(f"Requires C contiguous data for {name}")
         # data = np.ascontiguousarray(data)
 
+    array_interface = get_array_interface(data)
+    data_ptr = array_interface.get("data")
+    if not isinstance(data_ptr, tuple) or not data_ptr:
+        raise TypeError("Array interface data must be a tuple.")
+    ptr_value = data_ptr[0]
+    if not isinstance(ptr_value, int | np.integer):
+        raise TypeError("Array interface pointer must be an integer.")
+
     RawFunctions.oidnSetSharedFilterImage(
         filter_handle,
         bytes(name, "ascii"),
-        get_array_interface(data)["data"][0],
+        int(ptr_value),
         format,
         width,
         height,
@@ -290,7 +299,7 @@ def SetSharedFilterImageEx(
     )
 
 
-def UnsetFilterImage(filter_handle: int, name: str):
+def UnsetFilterImage(filter_handle: int, name: str) -> None:
     r"""
     Remove filter image, name could be color | albedo | normal | output
     Args:
@@ -300,14 +309,14 @@ def UnsetFilterImage(filter_handle: int, name: str):
     RawFunctions.oidnUnsetFilterImage(filter_handle, bytes(name, "ascii"))
 
 
-def RemoveFilterImage(filter_handle: int, name: str):
+def RemoveFilterImage(filter_handle: int, name: str) -> None:
     r"""
     Alias for UnsetFilterImage
     """
     UnsetFilterImage(filter_handle, name)
 
 
-def SetSharedFilterData(filter_handle: int, name: str, data: np.array):
+def SetSharedFilterData(filter_handle: int, name: str, data: np.ndarray) -> None:
     r"""
     Set filter data, the name could be:
         weights : trained model weights blob
@@ -326,7 +335,7 @@ def SetSharedFilterData(filter_handle: int, name: str, data: np.array):
     )
 
 
-def UpdateFilterData(filter_handle: int, name: str):
+def UpdateFilterData(filter_handle: int, name: str) -> None:
     r"""
     Just notify the filter that the contents of its data has been changed, name can be weight.
 
@@ -337,7 +346,7 @@ def UpdateFilterData(filter_handle: int, name: str):
     RawFunctions.oidnUpdateFilterData(filter_handle, bytes(name, "ascii"))
 
 
-def UnsetFilterData(filter_handle: int, name: str):
+def UnsetFilterData(filter_handle: int, name: str) -> None:
     r"""
     Remove the filter data, name can be weight.
 
@@ -348,7 +357,7 @@ def UnsetFilterData(filter_handle: int, name: str):
     RawFunctions.oidnUnsetFilterData(filter_handle, bytes(name, "ascii"))
 
 
-def RemoveFilterData(filter_handle: int, name: str):
+def RemoveFilterData(filter_handle: int, name: str) -> None:
     r"""
     Alias for UnsetFilterData
     """
@@ -430,7 +439,7 @@ def GetFilter1f(filter_handle: int, name: str) -> float:
     return GetFilterFloat(filter_handle, name)
 
 
-def SetFilterBool(filter_handle: int, name: str, value: bool):
+def SetFilterBool(filter_handle: int, name: str, value: bool) -> None:
     r"""
     Get filter parameter (type bool), the name could be:
         hdr (default = False, only support RT) : whether the main input image is HDR
@@ -453,14 +462,14 @@ def SetFilterBool(filter_handle: int, name: str, value: bool):
     RawFunctions.oidnSetFilterBool(filter_handle, bytes(name, "ascii"), value)
 
 
-def SetFilter1b(filter_handle: int, name: str, value: bool):
+def SetFilter1b(filter_handle: int, name: str, value: bool) -> None:
     r"""
     Alias for SetFilterBool
     """
     SetFilterBool(filter_handle, name, value)
 
 
-def SetFilterInt(filter_handle: int, name: str, value: int):
+def SetFilterInt(filter_handle: int, name: str, value: int) -> None:
     r"""
     Get filter parameter (type int), the name could be:
         maxMemoryMB (default=3000) : approximate maximum scratch memory to use in megabytes
@@ -478,14 +487,14 @@ def SetFilterInt(filter_handle: int, name: str, value: int):
     RawFunctions.oidnSetFilterInt(filter_handle, bytes(name, "ascii"), value)
 
 
-def SetFilter1i(filter_handle: int, name: str, value: int):
+def SetFilter1i(filter_handle: int, name: str, value: int) -> None:
     r"""
     Alias for SetFilterInt
     """
     SetFilterInt(filter_handle, name, value)
 
 
-def SetFilterFloat(filter_handle: int, name: str, value: float):
+def SetFilterFloat(filter_handle: int, name: str, value: float) -> None:
     r"""
     Get filter parameter (type float), the name could be:
         inputScale (default=nan) : scales values in the main input image before filtering,
@@ -501,14 +510,14 @@ def SetFilterFloat(filter_handle: int, name: str, value: float):
     RawFunctions.oidnSetFilterFloat(filter_handle, bytes(name, "ascii"), value)
 
 
-def SetFilter1f(filter_handle: int, name: str, value: float):
+def SetFilter1f(filter_handle: int, name: str, value: float) -> None:
     r"""
     Alias for SetFilterFloat
     """
     SetFilterFloat(filter_handle, name, value)
 
 
-def CommitFilter(filter_handle: int):
+def CommitFilter(filter_handle: int) -> None:
     r"""
     Batch up multiple changes for the filter
 
@@ -518,7 +527,7 @@ def CommitFilter(filter_handle: int):
     RawFunctions.oidnCommitFilter(filter_handle)
 
 
-def ExecuteFilter(filter_handle: int):
+def ExecuteFilter(filter_handle: int) -> None:
     r"""
     Execute the filter. Remember CommitFilter to ensure all your parameters notified.
 
@@ -528,7 +537,7 @@ def ExecuteFilter(filter_handle: int):
     RawFunctions.oidnExecuteFilter(filter_handle)
 
 
-def ReleaseFilter(filter_handle: int):
+def ReleaseFilter(filter_handle: int) -> None:
     r"""
     Release the filter
 
@@ -538,7 +547,7 @@ def ReleaseFilter(filter_handle: int):
     RawFunctions.oidnReleaseFilter(filter_handle)
 
 
-def RetainFilter(filter_handle: int):
+def RetainFilter(filter_handle: int) -> None:
     r"""
     Release the filter
 

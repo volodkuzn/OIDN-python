@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import builtins
 import importlib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import cast
+from types import TracebackType
+from typing import Protocol, TypeVar, cast
 
 import numpy as np
+from numpy.typing import DTypeLike
 from PIL import Image
 
 from oidn import _backends, _ffi
@@ -22,12 +25,23 @@ oidn_version = _ffi.loaded_library_version() or _ffi.packaged_library_version() 
 oidn_py_version = "0.4"
 
 
+_TAuto = TypeVar("_TAuto", bound="AutoReleaseByContextManaeger")
+
+
 class AutoReleaseByContextManaeger:
-    def __enter__(self):
+    def __enter__(self: _TAuto) -> _TAuto:
         return self
 
-    def __exit__(self, _1, _2, _3):
+    def __exit__(
+        self,
+        _1: type[BaseException] | None,
+        _2: BaseException | None,
+        _3: TracebackType | None,
+    ) -> None:
         self.release()
+
+    def release(self) -> None:
+        raise NotImplementedError
 
 
 class Device(AutoReleaseByContextManaeger):
@@ -53,6 +67,7 @@ class Device(AutoReleaseByContextManaeger):
         elif backend is not None:
             resolved = Backend.parse(backend)
         else:
+            assert device_type is not None
             resolved = Backend.parse(device_type)
         availability = _backends.backend_availability(resolved)
         if not availability.available:
@@ -70,13 +85,13 @@ class Device(AutoReleaseByContextManaeger):
         CommitDevice(self.device_handle)
 
     @property
-    def error(self):
+    def error(self) -> tuple[int, str]:
         """
         Returns a tuple[error_code, error_message], the same as oidn.GetDeviceError.
         """
         return GetDeviceError(self.device_handle)
 
-    def raise_if_error(self):
+    def raise_if_error(self) -> None:
         """
         Raise a RuntimeError if an error occured.
         """
@@ -84,7 +99,7 @@ class Device(AutoReleaseByContextManaeger):
         if err is not None and err[0] != 0:
             raise RuntimeError(err[1])
 
-    def release(self):
+    def release(self) -> None:
         """
         Call ReleaseDevice with self.device_handle
         """
@@ -93,42 +108,42 @@ class Device(AutoReleaseByContextManaeger):
         self.native_handle = 0
 
     @property
-    def is_cpu(self):
+    def is_cpu(self) -> bool:
         """
         Indicate whether it is a CPU device.
         """
         return self.backend is Backend.CPU
 
     @property
-    def is_cuda(self):
+    def is_cuda(self) -> bool:
         """
         Indicate wheter it is a CUDA device.
         """
         return self.backend is Backend.CUDA
 
     @property
-    def is_hip(self):
+    def is_hip(self) -> bool:
         """
         Indicate whether it is a HIP device.
         """
         return self.backend is Backend.HIP
 
     @property
-    def is_sycl(self):
+    def is_sycl(self) -> bool:
         """
         Indicate whether it is a SYCL device.
         """
         return self.backend is Backend.SYCL
 
     @property
-    def is_metal(self):
+    def is_metal(self) -> bool:
         """
         Indicate whether it is a Metal device.
         """
         return self.backend is Backend.METAL
 
     @property
-    def device_handle(self):
+    def device_handle(self) -> int:
         """
         Returns the device handle
         """
@@ -219,14 +234,31 @@ def _torch_dtype(torch_module: object, dtype: np.dtype) -> object:
     raise ValueError(f"Unsupported dtype: {dtype}")
 
 
-def _resolve_numpy_dtype(dtype: object) -> np.dtype:
+def _resolve_numpy_dtype(dtype: DTypeLike) -> np.dtype[np.float16] | np.dtype[np.float32]:
     try:
         resolved = np.dtype(dtype)
     except TypeError as exc:
         raise TypeError(f"Unsupported dtype: {dtype}") from exc
-    if resolved not in (np.dtype("float32"), np.dtype("float16")):
-        raise ValueError(f"Unsupported dtype: {resolved}")
-    return resolved
+    if resolved == np.dtype("float32"):
+        return cast(np.dtype[np.float32], resolved)
+    if resolved == np.dtype("float16"):
+        return cast(np.dtype[np.float16], resolved)
+    raise ValueError(f"Unsupported dtype: {resolved}")
+
+
+class _TorchTensorLike(Protocol):
+    is_cuda: bool
+    dtype: object
+
+    def detach(self) -> _TorchTensorLike: ...
+
+    def cpu(self) -> _TorchTensorLike: ...
+
+    def numpy(self) -> np.ndarray: ...
+
+    def float(self) -> _TorchTensorLike: ...
+
+    def __truediv__(self, value: builtins.float) -> _TorchTensorLike: ...
 
 
 class ChannelOrder(str, Enum):
@@ -285,7 +317,10 @@ def _parse_pointer(data: object) -> tuple[int, bool]:
 def _parse_array_interface(interface: Mapping[str, object]) -> _ArraySpec:
     if "typestr" not in interface:
         raise TypeError("Array interface missing 'typestr'.")
-    dtype = np.dtype(interface["typestr"])
+    typestr = interface["typestr"]
+    if not isinstance(typestr, str):
+        raise TypeError("Array interface typestr must be a string.")
+    dtype = np.dtype(typestr)
     shape = _tuple_of_ints(interface.get("shape"), name="shape")
     strides_obj = interface.get("strides")
     strides = None
@@ -474,7 +509,7 @@ class Buffer(AutoReleaseByContextManaeger):
         channel_first: bool = False,
         device: Device | None = None,
         use_cupy: bool = False,
-        dtype: object = np.float32,
+        dtype: DTypeLike = np.float32,
         channel_order: ChannelOrder | str | None = None,
     ) -> Buffer:
         """
@@ -491,6 +526,7 @@ class Buffer(AutoReleaseByContextManaeger):
             raise ValueError("channels must be 1, 2, 3, or 4.")
         shape = (height, width) if channels_value == 1 else (height, width, channels_value)
 
+        buffer: object
         if device.backend is Backend.CPU:
             buffer = np.zeros(shape=shape, dtype=resolved_dtype)
         elif device.backend in (Backend.CUDA, Backend.HIP):
@@ -536,32 +572,39 @@ class Buffer(AutoReleaseByContextManaeger):
         if normalize and not copy_data:
             raise RuntimeError("normalize=True requires copy_data=True.")
 
+        array: object
         if isinstance(source, Image.Image):
-            array = np.array(source)
+            img_array = np.array(source)
             if normalize:
-                if array.dtype == np.uint8:
-                    array = array.astype(np.float32) / 255.0
-                elif array.dtype == np.uint16:
-                    array = array.astype(np.float32) / 65535.0
+                if img_array.dtype == np.uint8:
+                    img_array = img_array.astype(np.float32) / 255.0
+                elif img_array.dtype == np.uint16:
+                    img_array = img_array.astype(np.float32) / 65535.0
+            array = img_array
         elif isinstance(source, np.ndarray):
-            array = source if not copy_data else np.array(source)
+            np_array = source if not copy_data else np.array(source)
             if normalize:
-                if array.dtype == np.uint8:
-                    array = array.astype(np.float32) / 255.0
-                elif array.dtype == np.uint16:
-                    array = array.astype(np.float32) / 65535.0
+                if np_array.dtype == np.uint8:
+                    np_array = np_array.astype(np.float32) / 255.0
+                elif np_array.dtype == np.uint16:
+                    np_array = np_array.astype(np.float32) / 65535.0
+            array = np_array
         else:
             torch = _load_torch()
             tensor_type = _require_type(torch, "Tensor")
             if isinstance(source, tensor_type):
+                tensor = cast(_TorchTensorLike, source)
                 if device.backend is Backend.CPU:
-                    array = source.detach().cpu().numpy()
+                    cpu_array = tensor.detach().cpu().numpy()
                     if normalize:
-                        array = array.astype(np.float32) / 255.0 if array.dtype == np.uint8 else array
+                        cpu_array = cpu_array.astype(np.float32) / 255.0 if cpu_array.dtype == np.uint8 else cpu_array
+                    array = cpu_array
                 else:
-                    if not getattr(source, "is_cuda", False):
+                    if not tensor.is_cuda:
                         raise RuntimeError("Torch tensor must be on CUDA for GPU backends.")
-                    tensor = source if not copy_data else _require_callable(torch, "tensor")(source)
+                    tensor = (
+                        tensor if not copy_data else cast(_TorchTensorLike, _require_callable(torch, "tensor")(source))
+                    )
                     if normalize:
                         dtype = getattr(tensor, "dtype", None)
                         uint8_dtype = getattr(torch, "uint8", None)
@@ -618,7 +661,8 @@ class Buffer(AutoReleaseByContextManaeger):
         torch = _load_torch()
         tensor_type = _require_type(torch, "Tensor")
         if isinstance(self.buffer_delegate, tensor_type):
-            return self.buffer_delegate.detach().cpu().numpy()
+            tensor = cast(_TorchTensorLike, self.buffer_delegate)
+            return tensor.detach().cpu().numpy()
         raise RuntimeError("Buffer cannot be converted to a numpy array.")
 
 

@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import ctypes
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import oidn._ffi as ffi
 import pytest
+
+if TYPE_CHECKING:
+    CCharPPtr = ctypes._Pointer[ctypes.c_char_p]
+else:
+    CCharPPtr = ctypes.POINTER(ctypes.c_char_p)
 
 
 class FakeFunc:
@@ -22,10 +27,11 @@ class FakeFunc:
 
 
 class FakeGetDeviceError(FakeFunc):
-    def __call__(self, device: object, message_ptr: object) -> object:
-        self.calls.append((device, message_ptr))
-        ptr = ctypes.cast(message_ptr, ctypes.POINTER(ctypes.c_char_p))
-        ptr.contents.value = b"bad argument"
+    def __call__(self, *args: object) -> object:
+        self.calls.append(args)
+        if len(args) > 1:
+            message_ptr = cast(CCharPPtr, args[1])
+            message_ptr.contents.value = b"bad argument"
         return 2
 
 
@@ -46,7 +52,7 @@ class FakeCDLL:
         self.name = name
 
 
-def test_load_library_uses_package_data(tmp_path: Path, monkeypatch) -> None:
+def test_load_library_uses_package_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     lib_dir = tmp_path / "lib.macos.aarch64"
     lib_dir.mkdir(parents=True)
     names = [
@@ -77,7 +83,7 @@ def test_load_library_uses_package_data(tmp_path: Path, monkeypatch) -> None:
     assert handle.name == "libOpenImageDenoise.2.4.1.dylib"
 
 
-def test_get_device_error_formats_message(monkeypatch) -> None:
+def test_get_device_error_formats_message(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_lib = cast(ctypes.CDLL, FakeLibrary())
     monkeypatch.setattr(ffi, "_FUNCTIONS", None)
     ffi.init(fake_lib, force=True)
@@ -88,7 +94,7 @@ def test_get_device_error_formats_message(monkeypatch) -> None:
     assert message == "An invalid argument was specified: bad argument"
 
 
-def test_raise_for_error_raises(monkeypatch) -> None:
+def test_raise_for_error_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_lib = cast(ctypes.CDLL, FakeLibrary())
     monkeypatch.setattr(ffi, "_FUNCTIONS", None)
     ffi.init(fake_lib, force=True)
@@ -102,6 +108,6 @@ def test_handle_from_ptr() -> None:
     assert ffi.handle_from_ptr(42) == 42
 
 
-def test_loaded_library_version(monkeypatch, tmp_path: Path) -> None:
+def test_loaded_library_version(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(ffi, "_LOADED_LIBRARY_PATH", tmp_path / "libOpenImageDenoise.2.4.1.dylib")
     assert ffi.loaded_library_version() == "2.4.1"

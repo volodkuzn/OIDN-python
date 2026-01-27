@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import builtins
+from collections.abc import Sequence
 from types import SimpleNamespace
 from typing import cast
 
 import numpy as np
 import oidn
 import pytest
+from numpy.typing import DTypeLike
 
 
 class DummyDevice:
@@ -27,12 +30,13 @@ class FakeTorchTensor:
         return self
 
     def numpy(self) -> np.ndarray:
-        return np.zeros(self.__cuda_array_interface__["shape"], dtype=np.float32)
+        shape = cast(tuple[int, ...], self.__cuda_array_interface__["shape"])
+        return np.zeros(shape, dtype=np.float32)
 
     def float(self) -> FakeTorchTensor:
         return self
 
-    def __truediv__(self, _value: float) -> FakeTorchTensor:
+    def __truediv__(self, _value: builtins.float) -> FakeTorchTensor:
         return self
 
 
@@ -47,28 +51,40 @@ class FakeTorchModule:
         self.cuda = SimpleNamespace(is_available=lambda: cuda_available)
         self.version = SimpleNamespace(hip="1.0" if hip_available else None)
 
-    def zeros(self, shape, *, dtype=None, device=None):
+    def zeros(
+        self,
+        shape: Sequence[int],
+        *,
+        dtype: object | None = None,
+        device: object | None = None,
+    ) -> FakeTorchTensor:
         interface = make_interface(shape, np.float32)
         return FakeTorchTensor(interface, dtype, is_cuda=True)
 
-    def tensor(self, data, *, device=None, dtype=None):
+    def tensor(
+        self,
+        data: object,
+        *,
+        device: object | None = None,
+        dtype: object | None = None,
+    ) -> FakeTorchTensor:
         interface = make_interface(getattr(data, "shape", (1,)), np.float32)
         return FakeTorchTensor(interface, dtype, is_cuda=True)
 
 
 class FakeCupyModule:
-    def zeros(self, shape, dtype=None):
+    def zeros(self, shape: Sequence[int], dtype: DTypeLike | None = None) -> FakeCudaArray:
         return FakeCudaArray(make_interface(shape, dtype or np.float32))
 
-    def asarray(self, array, dtype=None):
+    def asarray(self, array: np.ndarray, dtype: DTypeLike | None = None) -> FakeCudaArray:
         return FakeCudaArray(make_interface(array.shape, dtype or array.dtype))
 
 
 class FakeDpctlTensorModule:
-    def zeros(self, shape, dtype=None):
+    def zeros(self, shape: Sequence[int], dtype: DTypeLike | None = None) -> FakeSyclArray:
         return FakeSyclArray(make_interface(shape, dtype or np.float32))
 
-    def asarray(self, array, dtype=None):
+    def asarray(self, array: np.ndarray, dtype: DTypeLike | None = None) -> FakeSyclArray:
         return FakeSyclArray(make_interface(array.shape, dtype or array.dtype))
 
 
@@ -87,7 +103,13 @@ class FakeSyclArray:
         self.__sycl_usm_array_interface__ = interface
 
 
-def make_interface(shape, dtype, *, ptr=123, strides=None):
+def make_interface(
+    shape: Sequence[int],
+    dtype: DTypeLike,
+    *,
+    ptr: int = 123,
+    strides: Sequence[int] | None = None,
+) -> dict[str, object]:
     np_dtype = np.dtype(dtype)
     if strides is None:
         strides = oidn._expected_strides(tuple(shape), np_dtype.itemsize)
@@ -182,7 +204,8 @@ def test_resolve_numpy_dtype() -> None:
     with pytest.raises(ValueError):
         oidn._resolve_numpy_dtype(np.int32)
     with pytest.raises(TypeError):
-        oidn._resolve_numpy_dtype(object())
+        # exercise type validation
+        oidn._resolve_numpy_dtype(object())  # type: ignore[arg-type]
 
 
 def test_parse_interface_helpers() -> None:
@@ -284,7 +307,12 @@ def test_buffer_from_array_errors() -> None:
         oidn.Buffer.from_array(device, np.zeros((2, 2, 3), dtype=np.float32), channel_first=True)
 
     with pytest.raises(TypeError):
-        oidn.Buffer.from_array(device, np.zeros((2, 2, 3), dtype=np.float32), channel_order=123)
+        # exercise type validation
+        oidn.Buffer.from_array(
+            device,
+            np.zeros((2, 2, 3), dtype=np.float32),
+            channel_order=123,  # type: ignore[arg-type]
+        )
 
 
 def test_buffer_from_array_gpu_interfaces() -> None:

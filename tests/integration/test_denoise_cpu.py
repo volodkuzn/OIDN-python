@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import ctypes
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 import oidn
+import pytest
+
+if TYPE_CHECKING:
+    CCharPPtr = ctypes._Pointer[ctypes.c_char_p]
+else:
+    CCharPPtr = ctypes.POINTER(ctypes.c_char_p)
 
 
 @dataclass
@@ -31,7 +39,7 @@ class FakeFunctions:
     def oidnReleaseDevice(self, _handle: int) -> None:
         return None
 
-    def oidnGetDeviceError(self, _handle, message_ptr) -> int:
+    def oidnGetDeviceError(self, _handle: int, message_ptr: CCharPPtr) -> int:
         message_ptr.contents.value = b""
         return 0
 
@@ -63,11 +71,11 @@ class FakeFunctions:
         self.image_calls.append((name, width, height))
 
 
-def test_cpu_denoise_integration(monkeypatch) -> None:
+def test_cpu_denoise_integration(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeFunctions()
     monkeypatch.setattr(oidn._ffi, "get_functions", lambda: fake)
 
-    def fake_availability(_backend, *, check_runtime=True):
+    def fake_availability(_backend: object, *, check_runtime: bool = True) -> oidn._backends.BackendAvailability:
         return oidn._backends.BackendAvailability(oidn.Backend.CPU, True)
 
     monkeypatch.setattr(oidn._backends, "backend_availability", fake_availability)

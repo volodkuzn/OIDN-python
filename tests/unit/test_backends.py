@@ -62,7 +62,7 @@ def test_device_type_for_backend() -> None:
     assert backends.device_type_for_backend(backends.Backend.METAL) == DEVICE_TYPE_METAL
 
 
-def test_backend_library_detection(tmp_path: Path, monkeypatch) -> None:
+def test_backend_library_detection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     lib_dir = tmp_path / "lib.macos.aarch64"
     lib_dir.mkdir(parents=True)
     (lib_dir / "libOpenImageDenoise_device_cpu.2.4.1.dylib").touch()
@@ -72,7 +72,7 @@ def test_backend_library_detection(tmp_path: Path, monkeypatch) -> None:
     assert backends.is_backend_available(backends.Backend.CUDA, check_runtime=False) is False
 
 
-def test_available_backends_respects_order(tmp_path: Path, monkeypatch) -> None:
+def test_available_backends_respects_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     lib_dir = tmp_path / "lib.linux.x64"
     lib_dir.mkdir(parents=True)
     (lib_dir / "libOpenImageDenoise_device_cpu.so.2.4.1").touch()
@@ -84,7 +84,7 @@ def test_available_backends_respects_order(tmp_path: Path, monkeypatch) -> None:
     assert backends_list == [backends.Backend.CPU, backends.Backend.CUDA]
 
 
-def test_backend_auto_availability(monkeypatch) -> None:
+def test_backend_auto_availability(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_available(backend: backends.Backend | str, *, check_runtime: bool = True) -> bool:
         return backends.Backend.parse(backend) is backends.Backend.CPU
 
@@ -95,7 +95,7 @@ def test_backend_auto_availability(monkeypatch) -> None:
     assert availability.available is True
 
 
-def test_apply_device_options_sets_values(monkeypatch) -> None:
+def test_apply_device_options_sets_values(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeFunctions()
     monkeypatch.setattr(ffi, "get_functions", lambda: fake)
 
@@ -112,7 +112,7 @@ def test_apply_device_options_sets_values(monkeypatch) -> None:
     assert fake.int_calls == [(5, b"verbose", 2), (5, b"numThreads", 4), (5, b"threads", 8)]
 
 
-def test_apply_device_options_rejects_reserved(monkeypatch) -> None:
+def test_apply_device_options_rejects_reserved(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeFunctions()
     monkeypatch.setattr(ffi, "get_functions", lambda: fake)
 
@@ -121,7 +121,7 @@ def test_apply_device_options_rejects_reserved(monkeypatch) -> None:
         backends.apply_device_options(1, options)
 
 
-def test_apply_device_options_rejects_non_ascii(monkeypatch) -> None:
+def test_apply_device_options_rejects_non_ascii(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeFunctions()
     monkeypatch.setattr(ffi, "get_functions", lambda: fake)
 
@@ -130,11 +130,14 @@ def test_apply_device_options_rejects_non_ascii(monkeypatch) -> None:
         backends.apply_device_options(1, options)
 
 
-def test_apply_device_options_rejects_type(monkeypatch) -> None:
+def test_apply_device_options_rejects_type(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeFunctions()
     monkeypatch.setattr(ffi, "get_functions", lambda: fake)
 
-    options = backends.DeviceOptions(extra_params={"invalid": 1.5})
+    # exercise validation error
+    options = backends.DeviceOptions(
+        extra_params={"invalid": 1.5}  # type: ignore[dict-item]
+    )
     with pytest.raises(TypeError, match="Unsupported option type"):
         backends.apply_device_options(1, options)
 
@@ -145,28 +148,28 @@ def test_check_python_runtime_cpu() -> None:
     assert reason is None
 
 
-def test_check_python_runtime_sycl(monkeypatch) -> None:
+def test_check_python_runtime_sycl(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
     ok, reason = backends._check_python_runtime(backends.Backend.SYCL)
     assert ok is False
     assert reason == "SYCL backend requires dpctl for array support."
 
 
-def test_check_python_runtime_metal(monkeypatch) -> None:
+def test_check_python_runtime_metal(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "platform", "linux")
     ok, reason = backends._check_python_runtime(backends.Backend.METAL)
     assert ok is False
     assert reason == "Metal backend requires macOS."
 
 
-def test_check_python_runtime_cuda(monkeypatch) -> None:
+def test_check_python_runtime_cuda(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backends, "_torch_runtime_status", lambda: (False, "missing", False))
     ok, reason = backends._check_python_runtime(backends.Backend.CUDA)
     assert ok is False
     assert reason == "missing"
 
 
-def test_check_python_runtime_hip(monkeypatch) -> None:
+def test_check_python_runtime_hip(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(backends, "_torch_runtime_status", lambda: (True, None, False))
     ok, reason = backends._check_python_runtime(backends.Backend.HIP)
     assert ok is False
@@ -177,8 +180,8 @@ def test_check_python_runtime_hip(monkeypatch) -> None:
     assert reason is None
 
 
-def test_torch_runtime_status(monkeypatch) -> None:
-    def fail_import(_name: str):
+def test_torch_runtime_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_import(_name: str) -> object:
         raise ModuleNotFoundError
 
     monkeypatch.setattr(importlib, "import_module", fail_import)
@@ -218,7 +221,7 @@ def test_torch_runtime_status(monkeypatch) -> None:
     assert hip is True
 
 
-def test_probe_device_success(monkeypatch) -> None:
+def test_probe_device_success(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeFunctions()
     monkeypatch.setattr(ffi, "get_functions", lambda: fake)
     monkeypatch.setattr(ffi, "get_device_error", lambda handle: (0, ""))
@@ -229,7 +232,7 @@ def test_probe_device_success(monkeypatch) -> None:
     assert reason is None
 
 
-def test_probe_device_failure(monkeypatch) -> None:
+def test_probe_device_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeFunctions()
     monkeypatch.setattr(ffi, "get_functions", lambda: fake)
     monkeypatch.setattr(ffi, "get_device_error", lambda handle: (5, "unsupported"))

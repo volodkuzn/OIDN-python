@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from types import TracebackType
 from typing import cast
 
 import numpy as np
 import oidn
+import pytest
 
 
 class DummyDevice:
@@ -27,7 +29,12 @@ class FakeFilter:
     def __enter__(self) -> FakeFilter:
         return self
 
-    def __exit__(self, _1, _2, _3) -> None:
+    def __exit__(
+        self,
+        _1: type[BaseException] | None,
+        _2: BaseException | None,
+        _3: TracebackType | None,
+    ) -> None:
         self.release()
 
     def set_images(
@@ -52,8 +59,9 @@ class FakeFilter:
         self.released = True
 
 
-def test_denoise_with_existing_device(monkeypatch) -> None:
-    device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
+def test_denoise_with_existing_device(monkeypatch: pytest.MonkeyPatch) -> None:
+    dummy_device = DummyDevice(oidn.Backend.CPU)
+    device = cast(oidn.Device, dummy_device)
     fake_filter = FakeFilter(device, "RT")
     monkeypatch.setattr(oidn, "Filter", lambda device, filter_type: fake_filter)
 
@@ -64,13 +72,17 @@ def test_denoise_with_existing_device(monkeypatch) -> None:
     assert fake_filter.images["color"].width == 2
     assert fake_filter.images["output"] is output
     assert fake_filter.executed is True
-    assert device.released is False
+    assert dummy_device.released is False
 
 
-def test_denoise_creates_device(monkeypatch) -> None:
+def test_denoise_creates_device(monkeypatch: pytest.MonkeyPatch) -> None:
     created: list[DummyDevice] = []
 
-    def fake_device(*, backend=None, options=None):
+    def fake_device(
+        *,
+        backend: oidn.Backend | str | None = None,
+        options: oidn.DeviceOptions | None = None,
+    ) -> oidn.Device:
         device = DummyDevice(oidn.Backend.parse(backend or "cpu"))
         created.append(device)
         return cast(oidn.Device, device)
@@ -84,7 +96,7 @@ def test_denoise_creates_device(monkeypatch) -> None:
     assert created[0].released is True
 
 
-def test_denoise_with_aux_images(monkeypatch) -> None:
+def test_denoise_with_aux_images(monkeypatch: pytest.MonkeyPatch) -> None:
     device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
     fake_filter = FakeFilter(device, "RT")
     monkeypatch.setattr(oidn, "Filter", lambda device, filter_type: fake_filter)

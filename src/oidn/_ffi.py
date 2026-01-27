@@ -7,7 +7,7 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 DeviceHandle = int
 FilterHandle = int
@@ -15,7 +15,11 @@ DataPointer = int
 
 NewDeviceFn = Callable[[int], int | None]
 CommitDeviceFn = Callable[[int], None]
-GetDeviceErrorFn = Callable[[int, ctypes.POINTER(ctypes.c_char_p)], int]
+if TYPE_CHECKING:
+    _CCharPPtr = ctypes._Pointer[ctypes.c_char_p]
+else:
+    _CCharPPtr = ctypes.POINTER(ctypes.c_char_p)
+GetDeviceErrorFn = Callable[[int, _CCharPPtr], int]
 ReleaseDeviceFn = Callable[[int], None]
 RetainDeviceFn = Callable[[int], None]
 SetDeviceBoolFn = Callable[[int, bytes, bool], None]
@@ -100,13 +104,14 @@ def _package_root() -> Path:
 
 
 def _platform_tag() -> str:
-    if sys.platform.startswith("linux"):
+    platform_value = sys.platform
+    if platform_value.startswith("linux"):
         return "linux"
-    if sys.platform == "darwin":
+    if platform_value == "darwin":
         return "macos"
-    if sys.platform == "win32":
+    if platform_value == "win32":
         return "win"
-    raise RuntimeError(f"Unsupported platform: {sys.platform}")
+    raise RuntimeError(f"Unsupported platform: {platform_value}")
 
 
 def _arch_tag() -> str:
@@ -212,7 +217,7 @@ def _get_func(
     argtypes: Sequence[type[object]],
     restype: type[object] | None,
 ) -> _CFuncLike:
-    func = getattr(lib, name)
+    func = cast(_CFuncLike, getattr(lib, name))
     if not callable(func):
         raise TypeError(f"Expected callable ctypes function for {name}")
     if not hasattr(func, "argtypes") or not hasattr(func, "restype"):

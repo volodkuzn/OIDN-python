@@ -186,6 +186,15 @@ Deliverables
   - Local, code-commented `# type: ignore[<code>]` only in boundary modules.
   - Clean `uv run mypy src tests` in CI with documented exceptions.
 
+Status (2026-01-22)
+- [x] Bumped minimum Python version to 3.10 and aligned mypy `python_version`.
+- [x] Enabled strict-ish mypy gates (untyped defs, any generics, redundant casts, unreachable, strict equality).
+- [x] Added mypy overrides for pytest internals and optional deps (torch/dpctl).
+- [x] Added return type annotations for boundary helpers and test fakes.
+- [x] Added torch tensor Protocols, tighter dtype validation, and typed context manager returns.
+- [x] Added targeted mypy ignores at untyped boundaries and invalid-type test cases.
+- [ ] Confirmed `uv run mypy src tests` passes with the stricter config (blocked by uv cache permissions).
+
 ## Acceptance criteria
 - Package builds from pyproject and passes ruff, mypy, and pytest with 100% coverage.
 - Backend selection is explicit and validated at initialization.
