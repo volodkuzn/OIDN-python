@@ -45,7 +45,7 @@ py-modules = ["build_support"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-oidn = ["lib.*/*"]
+oidn = ["lib.*/*", "py.typed"]
 
 [tool.setuptools.cmdclass]
 bdist_wheel = "build_support.BDistWheel"
