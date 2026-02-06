@@ -22,9 +22,21 @@ class DummyDevice:
 class FakeFunctions:
     def __init__(self) -> None:
         self.calls: list[tuple[object, ...]] = []
+        self.bool_calls: list[tuple[int, bytes, bool]] = []
+        self.float_calls: list[tuple[int, bytes, float]] = []
+        self.int_calls: list[tuple[int, bytes, int]] = []
 
     def oidnSetSharedFilterImage(self, *args: object) -> None:
         self.calls.append(args)
+
+    def oidnSetFilterBool(self, handle: int, name: bytes, value: bool) -> None:
+        self.bool_calls.append((handle, name, value))
+
+    def oidnSetFilterFloat(self, handle: int, name: bytes, value: float) -> None:
+        self.float_calls.append((handle, name, value))
+
+    def oidnSetFilterInt(self, handle: int, name: bytes, value: int) -> None:
+        self.int_calls.append((handle, name, value))
 
 
 class FakeCudaArray:
@@ -58,6 +70,75 @@ def test_filter_set_images_calls_ffi(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(fake_functions.calls) == 2
     assert fake_functions.calls[0][1] == b"color"
     assert fake_functions.calls[1][1] == b"output"
+
+
+def test_filter_accepts_typed_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_functions = FakeFunctions()
+    _patch_filter(monkeypatch, fake_functions)
+    device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
+
+    oidn.Filter(
+        device,
+        "RT",
+        hdr=True,
+        inputScale=2.0,
+        cleanAux=True,
+        quality=oidn.FilterQuality.HIGH,
+    )
+
+    assert fake_functions.bool_calls == [
+        (11, b"hdr", True),
+        (11, b"cleanAux", True),
+    ]
+    assert fake_functions.float_calls == [(11, b"inputScale", 2.0)]
+    assert fake_functions.int_calls == [(11, b"quality", 6)]
+
+
+def test_filter_accepts_quality_string(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_functions = FakeFunctions()
+    _patch_filter(monkeypatch, fake_functions)
+    device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
+
+    oidn.Filter(device, "RT", quality="balanced")
+
+    assert fake_functions.int_calls == [(11, b"quality", 5)]
+
+
+def test_filter_accepts_directional_for_rtlightmap(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_functions = FakeFunctions()
+    _patch_filter(monkeypatch, fake_functions)
+    device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
+
+    oidn.Filter(device, "RTLightmap", directional=True)
+
+    assert fake_functions.bool_calls == [(11, b"directional", True)]
+
+
+def test_filter_rejects_directional_for_rt(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_functions = FakeFunctions()
+    _patch_filter(monkeypatch, fake_functions)
+    device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
+
+    with pytest.raises(RuntimeError, match="directional is only supported for RTLightmap"):
+        oidn.Filter(device, "RT", directional=True)
+
+
+def test_filter_rejects_invalid_input_scale_type(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_functions = FakeFunctions()
+    _patch_filter(monkeypatch, fake_functions)
+    device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
+
+    with pytest.raises(TypeError, match="inputScale must be a real number"):
+        oidn.Filter(device, "RT", inputScale="bad")  # type: ignore[arg-type]
+
+
+def test_filter_rejects_invalid_quality(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_functions = FakeFunctions()
+    _patch_filter(monkeypatch, fake_functions)
+    device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
+
+    with pytest.raises(ValueError, match="Unsupported filter quality"):
+        oidn.Filter(device, "RT", quality="invalid")
 
 
 def test_filter_rejects_invalid_name(monkeypatch: pytest.MonkeyPatch) -> None:

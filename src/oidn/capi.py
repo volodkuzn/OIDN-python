@@ -5,6 +5,7 @@ from collections.abc import Callable, Mapping
 from typing import cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 from oidn import _ffi
 from oidn.constants import (  # noqa: F401 - re-exported constants for public API
@@ -194,7 +195,7 @@ def NewFilter(device_handle: int, type: str) -> int:
 def SetSharedFilterImage(
     filter_handle: int,
     name: str,
-    data: np.ndarray,
+    data: NDArray[np.generic],
     format: int,
     width: int,
     height: int,
@@ -316,7 +317,7 @@ def RemoveFilterImage(filter_handle: int, name: str) -> None:
     UnsetFilterImage(filter_handle, name)
 
 
-def SetSharedFilterData(filter_handle: int, name: str, data: np.ndarray) -> None:
+def SetSharedFilterData(filter_handle: int, name: str, data: NDArray[np.generic]) -> None:
     r"""
     Set filter data, the name could be:
         weights : trained model weights blob

@@ -9,7 +9,7 @@ from types import TracebackType
 from typing import Protocol, TypeVar, cast
 
 import numpy as np
-from numpy.typing import DTypeLike
+from numpy.typing import DTypeLike, NDArray
 from PIL import Image
 
 from oidn import _backends, _ffi
@@ -226,7 +226,7 @@ def _torch_hip_available(torch_module: object) -> bool:
     return getattr(version, "hip", None) is not None
 
 
-def _torch_dtype(torch_module: object, dtype: np.dtype) -> object:
+def _torch_dtype(torch_module: object, dtype: np.dtype[np.generic]) -> object:
     if dtype == np.dtype("float32"):
         return _require_attr(torch_module, "float32")
     if dtype == np.dtype("float16"):
@@ -254,7 +254,7 @@ class _TorchTensorLike(Protocol):
 
     def cpu(self) -> _TorchTensorLike: ...
 
-    def numpy(self) -> np.ndarray: ...
+    def numpy(self) -> NDArray[np.generic]: ...
 
     def float(self) -> _TorchTensorLike: ...
 
@@ -278,12 +278,43 @@ class ChannelOrder(str, Enum):
         raise ValueError(f"Unsupported channel order: {value}")
 
 
+class FilterQuality(str, Enum):
+    DEFAULT = "default"
+    FAST = "fast"
+    BALANCED = "balanced"
+    HIGH = "high"
+
+    @classmethod
+    def parse(cls, value: FilterQuality | str) -> FilterQuality:
+        if isinstance(value, FilterQuality):
+            return value
+        if not isinstance(value, str):
+            raise TypeError("quality must be a FilterQuality or str")
+        normalized = value.strip().lower()
+        for member in cls:
+            if member.value == normalized:
+                return member
+        raise ValueError(f"Unsupported filter quality: {value}")
+
+
+_FILTER_QUALITY_INT = {
+    FilterQuality.DEFAULT: 0,
+    FilterQuality.FAST: 4,
+    FilterQuality.BALANCED: 5,
+    FilterQuality.HIGH: 6,
+}
+
+
+def _quality_to_int(value: FilterQuality | str) -> int:
+    return _FILTER_QUALITY_INT[FilterQuality.parse(value)]
+
+
 @dataclass(frozen=True, slots=True)
 class _ArraySpec:
     pointer: int
     shape: tuple[int, ...]
     strides: tuple[int, ...] | None
-    dtype: np.dtype
+    dtype: np.dtype[np.generic]
     read_only: bool
 
 
@@ -382,7 +413,7 @@ def _infer_image_shape(
     return height, width, channels
 
 
-def _format_for_dtype(dtype: np.dtype, channels: int) -> int:
+def _format_for_dtype(dtype: np.dtype[np.generic], channels: int) -> int:
     if dtype == np.dtype("float32"):
         formats = {
             1: FORMAT_FLOAT,
@@ -427,9 +458,9 @@ def _byte_strides(
 ) -> tuple[int, int]:
     if strides is None:
         if len(shape) == 2:
-            height, width = shape
+            _height, width = shape
             return width * itemsize, itemsize
-        height, width, channels = shape
+        _height, width, channels = shape
         return width * channels * itemsize, channels * itemsize
     if len(strides) == 2:
         return strides[0], strides[1]
@@ -449,7 +480,7 @@ class Buffer(AutoReleaseByContextManaeger):
     byte_pixel_stride: int
     byte_row_stride: int
     data_ptr: int
-    dtype: np.dtype
+    dtype: np.dtype[np.generic]
 
     @property
     def channel_first(self) -> bool:
@@ -652,7 +683,7 @@ class Buffer(AutoReleaseByContextManaeger):
             return self.buffer_delegate
         raise RuntimeError("Buffer is not backed by a torch.Tensor.")
 
-    def to_array(self) -> np.ndarray:
+    def to_array(self) -> NDArray[np.generic]:
         """
         Returns a numpy.ndarray copy of the buffer when possible.
         """
@@ -667,11 +698,26 @@ class Buffer(AutoReleaseByContextManaeger):
 
 
 class Filter(AutoReleaseByContextManaeger):
-    def __init__(self, device: Device, type: str) -> None:
+    def __init__(
+        self,
+        device: Device,
+        type: str,
+        *,
+        hdr: bool = False,
+        inputScale: float | None = None,
+        cleanAux: bool = False,
+        directional: bool = False,
+        quality: FilterQuality | str | None = None,
+    ) -> None:
         r"""
         Args:
             device : oidn.Device
             type   : 'RT' or 'RTLightmap'
+            hdr: whether the main input image is HDR
+            inputScale: scales values in the main input image before filtering
+            cleanAux: whether albedo/normal inputs are clean (RT only)
+            directional: whether the RTLightmap input contains directional coefficients
+            quality: quality/performance preset
         """
         self.device = device
         self.type = type
@@ -679,8 +725,47 @@ class Filter(AutoReleaseByContextManaeger):
         if not self.__filter_handle:
             raise RuntimeError("Can't create filter")
         device.raise_if_error()
-        CommitFilter(self.__filter_handle)
+        self._apply_options(
+            hdr=hdr,
+            inputScale=inputScale,
+            cleanAux=cleanAux,
+            directional=directional,
+            quality=quality,
+        )
         self._image_size: tuple[int, int] | None = None
+
+    def _apply_options(
+        self,
+        *,
+        hdr: bool,
+        inputScale: float | None,
+        cleanAux: bool,
+        directional: bool,
+        quality: FilterQuality | str | None,
+    ) -> None:
+        functions = _ffi.get_functions()
+        if hdr:
+            if self.type != "RT":
+                raise RuntimeError("hdr is only supported for RT filters.")
+            functions.oidnSetFilterBool(self.__filter_handle, b"hdr", True)
+        if inputScale is not None:
+            if isinstance(inputScale, bool):
+                raise TypeError("inputScale must be a real number.")
+            try:
+                value = float(inputScale)
+            except (TypeError, ValueError) as exc:
+                raise TypeError("inputScale must be a real number.") from exc
+            functions.oidnSetFilterFloat(self.__filter_handle, b"inputScale", value)
+        if cleanAux:
+            if self.type != "RT":
+                raise RuntimeError("cleanAux is only supported for RT filters.")
+            functions.oidnSetFilterBool(self.__filter_handle, b"cleanAux", True)
+        if directional:
+            if self.type != "RTLightmap":
+                raise RuntimeError("directional is only supported for RTLightmap filters.")
+            functions.oidnSetFilterBool(self.__filter_handle, b"directional", True)
+        if quality is not None:
+            functions.oidnSetFilterInt(self.__filter_handle, b"quality", _quality_to_int(quality))
 
     @property
     def filter_handle(self) -> int:
@@ -791,6 +876,11 @@ def denoise(
     backend: Backend | str | None = None,
     options: DeviceOptions | None = None,
     filter_type: str = "RT",
+    hdr: bool = False,
+    inputScale: float | None = None,
+    cleanAux: bool = False,
+    directional: bool = False,
+    quality: FilterQuality | str | None = None,
     channel_order: ChannelOrder | str | None = None,
     channel_first: bool = False,
 ) -> Buffer:
@@ -837,7 +927,15 @@ def denoise(
                 channel_first=channel_first,
             )
 
-        with Filter(device, filter_type) as filter_obj:
+        with Filter(
+            device,
+            filter_type,
+            hdr=hdr,
+            inputScale=inputScale,
+            cleanAux=cleanAux,
+            directional=directional,
+            quality=quality,
+        ) as filter_obj:
             filter_obj.set_images(
                 color=color_buffer,
                 output=output_buffer,

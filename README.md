@@ -5,6 +5,8 @@ The latest OIDN source is pinned as a git submodule under `oidn_cpp`, and wheels
 the corresponding native libraries. Backend availability depends on the packaged libs
 and the runtime toolchains on your machine.
 
+Migration notes for recent API changes are in [MIGRATION.md](MIGRATION.md).
+
 ## Install
 
 ```
@@ -62,6 +64,21 @@ output = oidn.Buffer.create(64, 64, device=device)
 with oidn.Filter(device, "RT") as filter_obj:
     filter_obj.set_images(color=color, albedo=albedo, normal=normal, output=output)
     filter_obj.execute()
+```
+
+## RTLightmap directional mode
+
+```python
+import numpy as np
+import oidn
+
+color = np.zeros((64, 64, 3), dtype=np.float32)
+output = oidn.denoise(
+    color,
+    backend="cpu",
+    filter_type="RTLightmap",
+    directional=True,
+)
 ```
 
 ## Architecture overview

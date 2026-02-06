@@ -19,9 +19,24 @@ class DummyDevice:
 
 
 class FakeFilter:
-    def __init__(self, device: oidn.Device, filter_type: str) -> None:
+    def __init__(
+        self,
+        device: oidn.Device,
+        filter_type: str,
+        *,
+        hdr: bool = False,
+        inputScale: float | None = None,
+        cleanAux: bool = False,
+        directional: bool = False,
+        quality: oidn.FilterQuality | str | None = None,
+    ) -> None:
         self.device = device
         self.filter_type = filter_type
+        self.hdr = hdr
+        self.input_scale = inputScale
+        self.clean_aux = cleanAux
+        self.directional = directional
+        self.quality = quality
         self.images: dict[str, oidn.Buffer] = {}
         self.executed = False
         self.released = False
@@ -63,7 +78,7 @@ def test_denoise_with_existing_device(monkeypatch: pytest.MonkeyPatch) -> None:
     dummy_device = DummyDevice(oidn.Backend.CPU)
     device = cast(oidn.Device, dummy_device)
     fake_filter = FakeFilter(device, "RT")
-    monkeypatch.setattr(oidn, "Filter", lambda device, filter_type: fake_filter)
+    monkeypatch.setattr(oidn, "Filter", lambda device, filter_type, **_kwargs: fake_filter)
 
     color = np.zeros((2, 2, 3), dtype=np.float32)
     output = oidn.denoise(color, device=device)
@@ -88,7 +103,7 @@ def test_denoise_creates_device(monkeypatch: pytest.MonkeyPatch) -> None:
         return cast(oidn.Device, device)
 
     monkeypatch.setattr(oidn, "Device", fake_device)
-    monkeypatch.setattr(oidn, "Filter", lambda device, filter_type: FakeFilter(device, filter_type))
+    monkeypatch.setattr(oidn, "Filter", lambda device, filter_type, **_kwargs: FakeFilter(device, filter_type))
 
     color = np.zeros((1, 1, 3), dtype=np.float32)
     oidn.denoise(color, backend="cpu")
@@ -99,7 +114,7 @@ def test_denoise_creates_device(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_denoise_with_aux_images(monkeypatch: pytest.MonkeyPatch) -> None:
     device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
     fake_filter = FakeFilter(device, "RT")
-    monkeypatch.setattr(oidn, "Filter", lambda device, filter_type: fake_filter)
+    monkeypatch.setattr(oidn, "Filter", lambda device, filter_type, **_kwargs: fake_filter)
 
     color = np.zeros((1, 1, 3), dtype=np.float32)
     albedo = np.zeros((1, 1, 3), dtype=np.float32)
@@ -111,3 +126,89 @@ def test_denoise_with_aux_images(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result is output
     assert "albedo" in fake_filter.images
     assert "normal" in fake_filter.images
+
+
+def test_denoise_forwards_filter_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
+    created: list[FakeFilter] = []
+
+    def fake_filter_ctor(
+        device: oidn.Device,
+        filter_type: str,
+        *,
+        hdr: bool = False,
+        inputScale: float | None = None,
+        cleanAux: bool = False,
+        directional: bool = False,
+        quality: oidn.FilterQuality | str | None = None,
+    ) -> FakeFilter:
+        filter_obj = FakeFilter(
+            device,
+            filter_type,
+            hdr=hdr,
+            inputScale=inputScale,
+            cleanAux=cleanAux,
+            directional=directional,
+            quality=quality,
+        )
+        created.append(filter_obj)
+        return filter_obj
+
+    monkeypatch.setattr(oidn, "Filter", fake_filter_ctor)
+
+    color = np.zeros((1, 1, 3), dtype=np.float32)
+    oidn.denoise(
+        color,
+        device=device,
+        hdr=True,
+        inputScale=4.0,
+        cleanAux=False,
+        quality=oidn.FilterQuality.BALANCED,
+    )
+
+    forwarded = created[0]
+    assert forwarded.hdr is True
+    assert forwarded.input_scale == 4.0
+    assert forwarded.clean_aux is False
+    assert forwarded.quality is oidn.FilterQuality.BALANCED
+
+
+def test_denoise_forwards_directional_for_rtlightmap(monkeypatch: pytest.MonkeyPatch) -> None:
+    device = cast(oidn.Device, DummyDevice(oidn.Backend.CPU))
+    created: list[FakeFilter] = []
+
+    def fake_filter_ctor(
+        device: oidn.Device,
+        filter_type: str,
+        *,
+        hdr: bool = False,
+        inputScale: float | None = None,
+        cleanAux: bool = False,
+        directional: bool = False,
+        quality: oidn.FilterQuality | str | None = None,
+    ) -> FakeFilter:
+        filter_obj = FakeFilter(
+            device,
+            filter_type,
+            hdr=hdr,
+            inputScale=inputScale,
+            cleanAux=cleanAux,
+            directional=directional,
+            quality=quality,
+        )
+        created.append(filter_obj)
+        return filter_obj
+
+    monkeypatch.setattr(oidn, "Filter", fake_filter_ctor)
+
+    color = np.zeros((1, 1, 3), dtype=np.float32)
+    oidn.denoise(
+        color,
+        device=device,
+        filter_type="RTLightmap",
+        directional=True,
+    )
+
+    forwarded = created[0]
+    assert forwarded.filter_type == "RTLightmap"
+    assert forwarded.directional is True

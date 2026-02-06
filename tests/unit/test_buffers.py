@@ -8,7 +8,7 @@ from typing import cast
 import numpy as np
 import oidn
 import pytest
-from numpy.typing import DTypeLike
+from numpy.typing import DTypeLike, NDArray
 
 
 class DummyDevice:
@@ -29,7 +29,7 @@ class FakeTorchTensor:
     def cpu(self) -> FakeTorchTensor:
         return self
 
-    def numpy(self) -> np.ndarray:
+    def numpy(self) -> NDArray[np.float32]:
         shape = cast(tuple[int, ...], self.__cuda_array_interface__["shape"])
         return np.zeros(shape, dtype=np.float32)
 
@@ -76,7 +76,7 @@ class FakeCupyModule:
     def zeros(self, shape: Sequence[int], dtype: DTypeLike | None = None) -> FakeCudaArray:
         return FakeCudaArray(make_interface(shape, dtype or np.float32))
 
-    def asarray(self, array: np.ndarray, dtype: DTypeLike | None = None) -> FakeCudaArray:
+    def asarray(self, array: NDArray[np.generic], dtype: DTypeLike | None = None) -> FakeCudaArray:
         return FakeCudaArray(make_interface(array.shape, dtype or array.dtype))
 
 
@@ -84,7 +84,7 @@ class FakeDpctlTensorModule:
     def zeros(self, shape: Sequence[int], dtype: DTypeLike | None = None) -> FakeSyclArray:
         return FakeSyclArray(make_interface(shape, dtype or np.float32))
 
-    def asarray(self, array: np.ndarray, dtype: DTypeLike | None = None) -> FakeSyclArray:
+    def asarray(self, array: NDArray[np.generic], dtype: DTypeLike | None = None) -> FakeSyclArray:
         return FakeSyclArray(make_interface(array.shape, dtype or array.dtype))
 
 
@@ -359,7 +359,7 @@ def test_buffer_create_cuda_paths(monkeypatch: pytest.MonkeyPatch) -> None:
 
     fake_torch_no_cuda = FakeTorchModule(cuda_available=False, hip_available=False)
     monkeypatch.setattr(oidn, "_load_torch", lambda: fake_torch_no_cuda)
-    with pytest.raises(RuntimeError, match="torch.cuda.is_available"):
+    with pytest.raises(RuntimeError, match=r"torch\.cuda\.is_available"):
         oidn.Buffer.create(1, 2, device=device, dtype=np.float32)
 
 

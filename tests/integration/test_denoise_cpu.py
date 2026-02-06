@@ -89,7 +89,7 @@ def test_cpu_denoise_integration(monkeypatch: pytest.MonkeyPatch) -> None:
     assert output.width == 2
     assert fake.new_device_calls
     assert fake.new_filter_calls == [b"RT"]
-    assert fake.commit_filter_calls == [20, 20]
+    assert fake.commit_filter_calls == [20]
     assert fake.execute_filter_calls == [20]
     assert [name for name, _w, _h in fake.image_calls] == [
         b"color",
